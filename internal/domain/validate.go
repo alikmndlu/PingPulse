@@ -115,6 +115,7 @@ func ApplyTargetDefaults(in CreateTargetInput, settings Settings) CreateTargetIn
 		Timeout:    &timeout,
 		RetryCount: &retry,
 		RetryDelay: &delay,
+		GroupID:    strings.TrimSpace(in.GroupID),
 	}
 }
 
@@ -146,4 +147,36 @@ func ValidateCreateTarget(in CreateTargetInput) error {
 		}
 	}
 	return nil
+}
+
+func ValidateGroupName(name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return NewValidationError("name", "group name is required")
+	}
+	if len(name) > 40 {
+		return NewValidationError("name", "group name must be 40 characters or fewer")
+	}
+	for _, r := range name {
+		if unicode.IsControl(r) {
+			return NewValidationError("name", "group name contains invalid characters")
+		}
+	}
+	return nil
+}
+
+func NormalizeGroupColor(color string) (string, error) {
+	color = strings.TrimSpace(strings.ToLower(color))
+	if color == "" {
+		return DefaultGroupColor, nil
+	}
+	if len(color) != 7 || color[0] != '#' {
+		return "", NewValidationError("color", "color must be a hex value like #22d3ee")
+	}
+	for _, r := range color[1:] {
+		if (r < '0' || r > '9') && (r < 'a' || r > 'f') {
+			return "", NewValidationError("color", "color must be a hex value like #22d3ee")
+		}
+	}
+	return color, nil
 }

@@ -69,6 +69,11 @@ func (h *Hub) Notify(ctx context.Context, n domain.Notification) error {
 		n.Body = RenderTemplate(templateForKind(n.Kind), n)
 	}
 
+	if domain.IsMuted(settings.MutedUntil) {
+		h.logger.Debug("notification suppressed by global mute", "targetId", n.TargetID, "kind", n.Kind)
+		return nil
+	}
+
 	if !h.allow(ctx, n.TargetID, string(n.Kind), settings.NotificationCooldownSeconds) {
 		h.logger.Debug("notification suppressed by cooldown", "targetId", n.TargetID, "kind", n.Kind)
 		return nil

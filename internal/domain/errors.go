@@ -10,6 +10,7 @@ var (
 	ErrInvalidInput      = errors.New("invalid input")
 	ErrInvalidHost       = errors.New("invalid host")
 	ErrDuplicateTarget   = errors.New("a target with this host already exists")
+	ErrDuplicateGroup    = errors.New("a group with this name already exists")
 	ErrMonitoringStopped = errors.New("monitoring is not running")
 	ErrSecretRedacted    = errors.New("secret value must not be logged")
 )

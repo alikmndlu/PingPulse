@@ -13,6 +13,7 @@ import { applyTheme, useAppStore } from "@/stores/app";
 export default function App() {
   const setTheme = useAppStore((s) => s.setTheme);
   const setMonitoring = useAppStore((s) => s.setMonitoring);
+  const setMutedUntil = useAppStore((s) => s.setMutedUntil);
 
   useEffect(() => {
     void api
@@ -20,13 +21,14 @@ export default function App() {
       .then((s) => {
         setTheme(s.theme);
         applyTheme(s.theme);
+        setMutedUntil(s.mutedUntil ?? "");
       })
       .catch(() => applyTheme("dark"));
     void api
       .getMonitoringStatus()
       .then((s) => setMonitoring(s.running, s.paused))
       .catch(() => undefined);
-  }, [setTheme, setMonitoring]);
+  }, [setTheme, setMonitoring, setMutedUntil]);
 
   return (
     <BrowserRouter>

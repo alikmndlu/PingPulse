@@ -20,6 +20,10 @@ type Target struct {
 	LastFailureAt        *time.Time   `json:"lastFailureAt"`
 	ConsecutiveFailures  int          `json:"consecutiveFailures"`
 	ConsecutiveSuccesses int          `json:"consecutiveSuccesses"`
+	GroupID              string       `json:"groupId"`
+	GroupName            string       `json:"groupName"`
+	GroupColor           string       `json:"groupColor"`
+	MutedUntil           string       `json:"mutedUntil"`
 }
 
 type CreateTargetInput struct {
@@ -30,6 +34,7 @@ type CreateTargetInput struct {
 	Timeout    *int   `json:"timeout,omitempty"`
 	RetryCount *int   `json:"retryCount,omitempty"`
 	RetryDelay *int   `json:"retryDelay,omitempty"`
+	GroupID    string `json:"groupId,omitempty"`
 }
 
 type UpdateTargetInput struct {
@@ -40,6 +45,7 @@ type UpdateTargetInput struct {
 	Timeout    *int    `json:"timeout,omitempty"`
 	RetryCount *int    `json:"retryCount,omitempty"`
 	RetryDelay *int    `json:"retryDelay,omitempty"`
+	GroupID    *string `json:"groupId,omitempty"`
 }
 
 type TargetExport struct {
@@ -50,6 +56,7 @@ type TargetExport struct {
 	Timeout    int    `json:"timeout"`
 	RetryCount int    `json:"retryCount"`
 	RetryDelay int    `json:"retryDelay"`
+	Group      string `json:"group,omitempty"`
 }
 
 type ImportResult struct {
@@ -71,6 +78,7 @@ type DashboardStats struct {
 	Monitoring     bool       `json:"monitoring"`
 	Paused         bool       `json:"paused"`
 	UptimePercent  float64    `json:"uptimePercent"`
+	MutedUntil     string     `json:"mutedUntil"`
 }
 
 type TargetMetrics struct {

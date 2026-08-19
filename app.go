@@ -34,6 +34,7 @@ type App struct {
 	events    *repository.EventRepository
 	settings  *repository.SettingsRepository
 	notifRepo *repository.NotificationRepository
+	groups    *repository.GroupRepository
 	engine    *monitor.Engine
 	scheduler *scheduler.Scheduler
 	hub       *notification.Hub
@@ -72,6 +73,7 @@ func (a *App) startup(ctx context.Context) {
 	a.events = repository.NewEventRepository(db)
 	a.settings = repository.NewSettingsRepository(db)
 	a.notifRepo = repository.NewNotificationRepository(db)
+	a.groups = repository.NewGroupRepository(db)
 
 	a.hub = notification.NewHub(a.settings, a.notifRepo, wailsEmitter{app: a}, a.logger.Logger,
 		notification.NewSMSProvider(a.notifRepo),
@@ -188,6 +190,12 @@ func (a *App) CreateTarget(input domain.CreateTargetInput) (domain.Target, error
 	if !t.Enabled {
 		t.LastStatus = domain.StatusDisabled
 	}
+	if input.GroupID != "" {
+		if _, err := a.groups.Get(ctx, input.GroupID); err != nil {
+			return domain.Target{}, publicErr(domain.NewValidationError("groupId", "group was not found"))
+		}
+		t.GroupID = input.GroupID
+	}
 	created, err := a.targets.Create(ctx, t)
 	if err != nil {
 		return domain.Target{}, publicErr(err)
@@ -249,6 +257,15 @@ func (a *App) UpdateTarget(id string, input domain.UpdateTargetInput) (domain.Ta
 		}
 		t.RetryDelay = *input.RetryDelay
 	}
+	if input.GroupID != nil {
+		gid := strings.TrimSpace(*input.GroupID)
+		if gid != "" {
+			if _, err := a.groups.Get(ctx, gid); err != nil {
+				return domain.Target{}, publicErr(domain.NewValidationError("groupId", "group was not found"))
+			}
+		}
+		t.GroupID = gid
+	}
 	updated, err := a.targets.Update(ctx, t)
 	if err != nil {
 		return domain.Target{}, publicErr(err)
@@ -265,6 +282,94 @@ func (a *App) DeleteTarget(id string) error {
 
 func (a *App) SetTargetEnabled(id string, enabled bool) (domain.Target, error) {
 	return a.UpdateTarget(id, domain.UpdateTargetInput{Enabled: &enabled})
+}
+
+func (a *App) MuteNotifications(seconds int) (domain.Settings, error) {
+	ctx := a.requestContext()
+	s, err := a.settings.Get(ctx)
+	if err != nil {
+		return domain.Settings{}, publicErr(err)
+	}
+	s.MutedUntil = domain.MuteUntil(seconds)
+	if err := a.settings.Save(ctx, s); err != nil {
+		return domain.Settings{}, publicErr(err)
+	}
+	a.emit(domain.WailsMuteChanged, s.MutedUntil)
+	return s, nil
+}
+
+func (a *App) MuteTarget(id string, seconds int) (domain.Target, error) {
+	ctx := a.requestContext()
+	t, err := a.targets.Get(ctx, id)
+	if err != nil {
+		return domain.Target{}, publicErr(err)
+	}
+	t.MutedUntil = domain.MuteUntil(seconds)
+	updated, err := a.targets.Update(ctx, t)
+	if err != nil {
+		return domain.Target{}, publicErr(err)
+	}
+	a.emit(domain.WailsMuteChanged, map[string]string{"targetId": updated.ID, "mutedUntil": updated.MutedUntil})
+	return updated, nil
+}
+
+func (a *App) ListGroups() ([]domain.TargetGroup, error) {
+	if a.groups == nil {
+		return []domain.TargetGroup{}, fmt.Errorf("application is still starting")
+	}
+	items, err := a.groups.List(a.requestContext())
+	if items == nil {
+		items = []domain.TargetGroup{}
+	}
+	return items, publicErr(err)
+}
+
+func (a *App) CreateGroup(name, color string) (domain.TargetGroup, error) {
+	ctx := a.requestContext()
+	if err := domain.ValidateGroupName(name); err != nil {
+		return domain.TargetGroup{}, publicErr(err)
+	}
+	normalized, err := domain.NormalizeGroupColor(color)
+	if err != nil {
+		return domain.TargetGroup{}, publicErr(err)
+	}
+	created, err := a.groups.Create(ctx, domain.TargetGroup{Name: strings.TrimSpace(name), Color: normalized})
+	if err != nil {
+		return domain.TargetGroup{}, publicErr(err)
+	}
+	a.emit(domain.WailsGroupsChanged, created)
+	return created, nil
+}
+
+func (a *App) UpdateGroup(id, name, color string) (domain.TargetGroup, error) {
+	ctx := a.requestContext()
+	g, err := a.groups.Get(ctx, id)
+	if err != nil {
+		return domain.TargetGroup{}, publicErr(err)
+	}
+	if err := domain.ValidateGroupName(name); err != nil {
+		return domain.TargetGroup{}, publicErr(err)
+	}
+	normalized, err := domain.NormalizeGroupColor(color)
+	if err != nil {
+		return domain.TargetGroup{}, publicErr(err)
+	}
+	g.Name = strings.TrimSpace(name)
+	g.Color = normalized
+	updated, err := a.groups.Update(ctx, g)
+	if err != nil {
+		return domain.TargetGroup{}, publicErr(err)
+	}
+	a.emit(domain.WailsGroupsChanged, updated)
+	return updated, nil
+}
+
+func (a *App) DeleteGroup(id string) error {
+	if err := a.groups.Delete(a.requestContext(), id); err != nil {
+		return publicErr(err)
+	}
+	a.emit(domain.WailsGroupsChanged, id)
+	return nil
 }
 
 func (a *App) TestPing(host string, timeout int) (domain.PingTestResult, error) {
@@ -311,6 +416,12 @@ func (a *App) GetDashboardStats() (domain.DashboardStats, error) {
 		}
 		if total > 0 {
 			stats.UptimePercent = (float64(up) / float64(total)) * 100
+		}
+	}
+	if err == nil {
+		s, serr := a.settings.Get(ctx)
+		if serr == nil {
+			stats.MutedUntil = s.MutedUntil
 		}
 	}
 	return stats, nil
@@ -428,6 +539,13 @@ func (a *App) ImportTargets(payload, format string) (domain.ImportResult, error)
 			result.Errors = append(result.Errors, impex.FormatError(i, err))
 			continue
 		}
+		gid, gerr := a.resolveImportGroup(ctx, in.GroupID)
+		if gerr != nil {
+			result.Skipped++
+			result.Errors = append(result.Errors, impex.FormatError(i, gerr))
+			continue
+		}
+		in.GroupID = gid
 		existing, err := a.targets.GetByHost(ctx, in.Host)
 		if err == nil {
 			existing.Name = in.Name
@@ -436,6 +554,7 @@ func (a *App) ImportTargets(payload, format string) (domain.ImportResult, error)
 			existing.Timeout = *in.Timeout
 			existing.RetryCount = *in.RetryCount
 			existing.RetryDelay = *in.RetryDelay
+			existing.GroupID = gid
 			if !existing.Enabled {
 				existing.LastStatus = domain.StatusDisabled
 			}
@@ -524,6 +643,21 @@ func (a *App) requestContext() context.Context {
 	return context.Background()
 }
 
+func (a *App) resolveImportGroup(ctx context.Context, name string) (string, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", nil
+	}
+	if err := domain.ValidateGroupName(name); err != nil {
+		return "", err
+	}
+	g, err := a.groups.EnsureByName(ctx, name, domain.DefaultGroupColor)
+	if err != nil {
+		return "", err
+	}
+	return g.ID, nil
+}
+
 func (a *App) refreshTray() {
 	if a.tray == nil || a.targets == nil {
 		return
@@ -551,6 +685,9 @@ func publicErr(err error) error {
 	if errors.Is(err, domain.ErrDuplicateTarget) {
 		return fmt.Errorf("a target with this host already exists")
 	}
+	if errors.Is(err, domain.ErrDuplicateGroup) {
+		return fmt.Errorf("a group with this name already exists")
+	}
 	var ve *domain.ValidationError
 	if errors.As(err, &ve) {
 		return ve
@@ -562,6 +699,9 @@ func publicErr(err error) error {
 	slog.Debug("internal error", "error", err)
 	msg := strings.ToLower(err.Error())
 	if strings.Contains(msg, "unique") {
+		if strings.Contains(msg, "target_groups") {
+			return fmt.Errorf("a group with this name already exists")
+		}
 		return fmt.Errorf("a target with this host already exists")
 	}
 	if strings.Contains(msg, "constraint") {

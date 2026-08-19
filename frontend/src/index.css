@@ -67,3 +67,8 @@
 [dir="rtl"] .recharts-wrapper {
   direction: ltr;
 }
+
+.recharts-default-tooltip,
+.recharts-tooltip-wrapper {
+  outline: none;
+}

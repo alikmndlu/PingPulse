@@ -230,7 +230,7 @@ func (e *Engine) handleOffline(ctx context.Context, target domain.Target, settin
 	if target.LastSuccessAt != nil {
 		lastSuccess = target.LastSuccessAt.Local().Format("15:04:05")
 	}
-	_ = e.notifier.Notify(ctx, domain.Notification{
+	e.notify(ctx, target, domain.Notification{
 		Kind:        domain.KindAlert,
 		Title:       "PingPulse",
 		Body:        fmt.Sprintf("%s is OFFLINE", target.Name),
@@ -254,7 +254,7 @@ func (e *Engine) handleRecovery(ctx context.Context, target domain.Target, setti
 	if !settings.NotifyOnRecovery {
 		return
 	}
-	_ = e.notifier.Notify(ctx, domain.Notification{
+	e.notify(ctx, target, domain.Notification{
 		Kind:       domain.KindRecovery,
 		Title:      "PingPulse",
 		Body:       fmt.Sprintf("%s is back ONLINE", target.Name),
@@ -274,7 +274,7 @@ func (e *Engine) handleHighLatency(ctx context.Context, target domain.Target, se
 		return
 	}
 	ms := latency
-	_ = e.notifier.Notify(ctx, domain.Notification{
+	e.notify(ctx, target, domain.Notification{
 		Kind:       domain.KindLatency,
 		Title:      "PingPulse",
 		Body:       fmt.Sprintf("%s latency is %dms", target.Name, latency),
@@ -296,7 +296,7 @@ func (e *Engine) handleTimeout(ctx context.Context, target domain.Target, settin
 	if !settings.NotifyOnTimeout {
 		return
 	}
-	_ = e.notifier.Notify(ctx, domain.Notification{
+	e.notify(ctx, target, domain.Notification{
 		Kind:       domain.KindTimeout,
 		Title:      "PingPulse",
 		Body:       fmt.Sprintf("%s ping timed out", target.Name),
@@ -306,6 +306,14 @@ func (e *Engine) handleTimeout(ctx context.Context, target domain.Target, settin
 		Status:     "TIMEOUT",
 		OccurredAt: time.Now().Format("15:04:05"),
 	})
+}
+
+func (e *Engine) notify(ctx context.Context, target domain.Target, n domain.Notification) {
+	if domain.IsMuted(target.MutedUntil) {
+		e.logger.Debug("notification skipped, target muted", "targetId", target.ID, "kind", n.Kind)
+		return
+	}
+	_ = e.notifier.Notify(ctx, n)
 }
 
 func (e *Engine) storeEvent(ctx context.Context, target domain.Target, typ domain.EventType, message string, meta map[string]any) {

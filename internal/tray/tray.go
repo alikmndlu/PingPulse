@@ -3,11 +3,13 @@ package tray
 import (
 	"bytes"
 	"encoding/binary"
+	"image/png"
 	"log/slog"
 	"sync/atomic"
 
+	"pingpulse/internal/appicon"
+
 	"github.com/energye/systray"
-	"image/png"
 )
 
 type Callbacks struct {
@@ -28,7 +30,10 @@ type Tray struct {
 }
 
 func New(iconPNG []byte, logger *slog.Logger, cb Callbacks) *Tray {
-	ico := PNGToICO(iconPNG)
+	ico, err := appicon.EncodeICO(16, 32, 48)
+	if err != nil || len(ico) == 0 {
+		ico = PNGToICO(iconPNG)
+	}
 	if len(ico) == 0 {
 		ico = iconPNG
 	}

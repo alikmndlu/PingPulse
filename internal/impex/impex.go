@@ -17,6 +17,7 @@ func ExportJSON(targets []domain.Target) (string, error) {
 		items = append(items, domain.TargetExport{
 			Name: t.Name, Host: t.Host, Enabled: t.Enabled,
 			Interval: t.Interval, Timeout: t.Timeout, RetryCount: t.RetryCount, RetryDelay: t.RetryDelay,
+			Group: t.GroupName,
 		})
 	}
 	b, err := json.MarshalIndent(items, "", "  ")
@@ -29,12 +30,12 @@ func ExportJSON(targets []domain.Target) (string, error) {
 func ExportCSV(targets []domain.Target) (string, error) {
 	var buf bytes.Buffer
 	w := csv.NewWriter(&buf)
-	_ = w.Write([]string{"name", "host", "enabled", "interval", "timeout", "retryCount", "retryDelay"})
+	_ = w.Write([]string{"name", "host", "enabled", "interval", "timeout", "retryCount", "retryDelay", "group"})
 	for _, t := range targets {
 		_ = w.Write([]string{
 			t.Name, t.Host, strconv.FormatBool(t.Enabled),
 			strconv.Itoa(t.Interval), strconv.Itoa(t.Timeout),
-			strconv.Itoa(t.RetryCount), strconv.Itoa(t.RetryDelay),
+			strconv.Itoa(t.RetryCount), strconv.Itoa(t.RetryDelay), t.GroupName,
 		})
 	}
 	w.Flush()
@@ -109,6 +110,7 @@ func parseCSV(payload string) ([]domain.CreateTargetInput, error) {
 		it.Timeout = parseInt(col(row, header, "timeout"), it.Timeout)
 		it.RetryCount = parseInt(col(row, header, "retrycount"), it.RetryCount)
 		it.RetryDelay = parseInt(col(row, header, "retrydelay"), it.RetryDelay)
+		it.Group = col(row, header, "group")
 		out = append(out, exportToInput(it))
 	}
 	if len(out) == 0 {
@@ -123,6 +125,7 @@ func exportToInput(it domain.TargetExport) domain.CreateTargetInput {
 	return domain.CreateTargetInput{
 		Name: it.Name, Host: it.Host, Enabled: &enabled,
 		Interval: &interval, Timeout: &timeout, RetryCount: &retry, RetryDelay: &delay,
+		GroupID: strings.TrimSpace(it.Group),
 	}
 }
 

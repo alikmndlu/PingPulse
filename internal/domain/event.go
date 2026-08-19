@@ -34,6 +34,8 @@ const (
 	WailsMonitoringStarted   = "monitoring:started"
 	WailsMonitoringStopped   = "monitoring:stopped"
 	WailsEventCreated        = "event:created"
+	WailsMuteChanged         = "mute:changed"
+	WailsGroupsChanged       = "groups:changed"
 )
 
 type StatusChangedPayload struct {

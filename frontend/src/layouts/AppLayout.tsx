@@ -1,7 +1,9 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { Activity, Bell, History, LayoutDashboard, Monitor, Moon, Settings, Sun, Server } from "lucide-react";
+import { Bell, BellOff, History, LayoutDashboard, Monitor, Moon, Settings, Sun, Server } from "lucide-react";
+import { useEffect, useState } from "react";
 import { copy } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { formatMuteRemaining, isMuted } from "@/lib/mute";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAppStore } from "@/stores/app";
@@ -24,6 +26,16 @@ export function AppLayout() {
   const paused = useAppStore((s) => s.paused);
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
+  const mutedUntil = useAppStore((s) => s.mutedUntil);
+  const setMutedUntil = useAppStore((s) => s.setMutedUntil);
+  const [, setTick] = useState(0);
+  const muted = isMuted(mutedUntil);
+
+  useEffect(() => {
+    if (!muted) return;
+    const id = window.setInterval(() => setTick((n) => n + 1), 1000);
+    return () => window.clearInterval(id);
+  }, [muted, mutedUntil]);
 
   const statusLabel = paused ? copy.monitoring.paused : monitoring ? copy.monitoring.running : copy.monitoring.stopped;
   const statusClass = paused ? "bg-amber-400" : monitoring ? "bg-emerald-400" : "bg-zinc-500";
@@ -48,14 +60,22 @@ export function AppLayout() {
     }
   }
 
+  async function toggleMute() {
+    try {
+      const saved = await api.muteNotifications(muted ? 0 : 3600);
+      setMutedUntil(saved.mutedUntil ?? "");
+      toast.success(saved.mutedUntil ? "Alerts quiet for 1 hour" : "Alerts unmuted");
+    } catch (err) {
+      toast.error(wailsError(err));
+    }
+  }
+
   return (
     <TooltipProvider>
       <div className="flex min-h-screen bg-background text-foreground">
         <aside className="flex w-60 shrink-0 flex-col border-e border-border bg-card/40">
           <div className="flex items-center gap-3 px-5 py-5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-500/15 text-cyan-400">
-              <Activity className="h-5 w-5" />
-            </div>
+            <img src="/appicon.png" alt="" className="h-9 w-9 rounded-lg shadow-sm ring-1 ring-white/10" />
             <div>
               <p className="text-sm font-semibold">{copy.appName}</p>
               <p className="text-[11px] text-muted-foreground">Infrastructure pulse</p>
@@ -89,6 +109,15 @@ export function AppLayout() {
               <span className="text-xs text-muted-foreground">{statusLabel}</span>
             </div>
             <div className="flex items-center gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="sm" variant={muted ? "default" : "outline"} onClick={() => void toggleMute()}>
+                    {muted ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+                    {muted ? `Quiet ${formatMuteRemaining(mutedUntil)}` : "Quiet 1 hour"}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{muted ? "Click to unmute SMS, desktop, and webhook alerts" : "Silence all alerts for one hour"}</TooltipContent>
+              </Tooltip>
               <Button size="sm" variant={monitoring ? "outline" : "default"} onClick={toggleMonitoring}>
                 <Monitor className="h-4 w-4" />
                 {monitoring ? "Stop" : "Start"} monitoring

@@ -123,3 +123,38 @@ func TestSettingsRoundTrip(t *testing.T) {
 		t.Fatalf("%+v", got)
 	}
 }
+
+func TestGroupRepositoryAndTargetMute(t *testing.T) {
+	db, err := database.Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	groups := NewGroupRepository(db)
+	targets := NewTargetRepository(db)
+	home, err := groups.Create(context.Background(), domain.TargetGroup{Name: "خانه", Color: "#22d3ee"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := groups.Create(context.Background(), domain.TargetGroup{Name: "خانه", Color: "#34d399"}); err != domain.ErrDuplicateGroup {
+		t.Fatalf("expected duplicate group, got %v", err)
+	}
+	created, err := targets.Create(context.Background(), domain.Target{
+		Name: "Router", Host: "192.168.1.1", Enabled: true,
+		Interval: 120, Timeout: 5, LastStatus: domain.StatusUnknown, GroupID: home.ID,
+		MutedUntil: domain.MuteUntil(3600),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.GroupName != "خانه" || created.GroupColor != "#22d3ee" || !domain.IsMuted(created.MutedUntil) {
+		t.Fatalf("target group/mute: %+v", created)
+	}
+	if err := groups.Delete(context.Background(), home.ID); err != nil {
+		t.Fatal(err)
+	}
+	got, err := targets.Get(context.Background(), created.ID)
+	if err != nil || got.GroupID != "" {
+		t.Fatalf("expected group cleared, got %+v %v", got, err)
+	}
+}

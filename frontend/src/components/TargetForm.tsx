@@ -3,8 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import type { CreateTargetInput, Target } from "@/types";
+import { GROUP_NONE } from "@/lib/groups";
+import { api } from "@/services/api";
+import type { CreateTargetInput, Target, TargetGroup } from "@/types";
 
 const empty = {
   name: "",
@@ -14,6 +17,7 @@ const empty = {
   timeout: 5,
   retryCount: 3,
   retryDelay: 2,
+  groupId: GROUP_NONE,
 };
 
 export function TargetForm({
@@ -30,8 +34,14 @@ export function TargetForm({
   busy?: boolean;
 }) {
   const [form, setForm] = useState(empty);
+  const [groups, setGroups] = useState<TargetGroup[]>([]);
 
   useEffect(() => {
+    if (!open) return;
+    void api
+      .listGroups()
+      .then((list) => setGroups(list ?? []))
+      .catch(() => setGroups([]));
     if (initial) {
       setForm({
         name: initial.name,
@@ -41,6 +51,7 @@ export function TargetForm({
         timeout: initial.timeout,
         retryCount: initial.retryCount,
         retryDelay: initial.retryDelay,
+        groupId: initial.groupId || GROUP_NONE,
       });
     } else {
       setForm(empty);
@@ -58,7 +69,10 @@ export function TargetForm({
           className="grid gap-4"
           onSubmit={async (e) => {
             e.preventDefault();
-            await onSubmit(form);
+            await onSubmit({
+              ...form,
+              groupId: form.groupId === GROUP_NONE ? "" : form.groupId,
+            });
           }}
         >
           <div className="grid gap-2">
@@ -68,6 +82,22 @@ export function TargetForm({
           <div className="grid gap-2">
             <Label htmlFor="host">IP / Hostname</Label>
             <Input id="host" value={form.host} onChange={(e) => setForm({ ...form, host: e.target.value })} placeholder="10.10.10.20" required />
+          </div>
+          <div className="grid gap-2">
+            <Label>Group</Label>
+            <Select value={form.groupId} onValueChange={(groupId) => setForm({ ...form, groupId })}>
+              <SelectTrigger>
+                <SelectValue placeholder="Ungrouped" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={GROUP_NONE}>Ungrouped</SelectItem>
+                {groups.map((g) => (
+                  <SelectItem key={g.id} value={g.id}>
+                    {g.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-2">

@@ -18,6 +18,18 @@ export interface Target {
   lastFailureAt: string | null;
   consecutiveFailures: number;
   consecutiveSuccesses: number;
+  groupId?: string;
+  groupName?: string;
+  groupColor?: string;
+  mutedUntil?: string;
+}
+
+export interface TargetGroup {
+  id: string;
+  name: string;
+  color: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CreateTargetInput {
@@ -28,6 +40,7 @@ export interface CreateTargetInput {
   timeout?: number;
   retryCount?: number;
   retryDelay?: number;
+  groupId?: string;
 }
 
 export interface UpdateTargetInput {
@@ -38,6 +51,7 @@ export interface UpdateTargetInput {
   timeout?: number;
   retryCount?: number;
   retryDelay?: number;
+  groupId?: string;
 }
 
 export interface DashboardStats {
@@ -52,6 +66,7 @@ export interface DashboardStats {
   monitoring: boolean;
   paused: boolean;
   uptimePercent: number;
+  mutedUntil?: string;
 }
 
 export interface PingResult {
@@ -111,6 +126,7 @@ export interface Settings {
   notifyOnTimeout: boolean;
   theme: "dark" | "light";
   logLevel: string;
+  mutedUntil?: string;
 }
 
 export interface NotificationConfig {

@@ -12,4 +12,8 @@ func TestParseJSONAndCSV(t *testing.T) {
 	if err != nil || len(items) != 1 || items[0].Name != "Edge" {
 		t.Fatalf("csv import: %+v %v", items, err)
 	}
+	grouped, err := Parse(`[{"name":"Cam","host":"10.0.0.12","group":"دوربین"}]`, "json")
+	if err != nil || len(grouped) != 1 || grouped[0].GroupID != "دوربین" {
+		t.Fatalf("json group import: %+v %v", grouped, err)
+	}
 }

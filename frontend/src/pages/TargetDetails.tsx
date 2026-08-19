@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis } from "recharts";
+import { Bell, BellOff } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
+import { GroupBadge } from "@/components/GroupFilter";
+import { AvailabilityStrip } from "@/components/charts/AvailabilityStrip";
+import { LatencyAreaChart } from "@/components/charts/LatencyAreaChart";
+import { ResultsDonut } from "@/components/charts/ResultsDonut";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -9,6 +13,7 @@ import { api } from "@/services/api";
 import { useAppStore } from "@/stores/app";
 import type { TargetDetails } from "@/types";
 import { formatDateTime, formatLatency, formatPercent, formatTime } from "@/lib/format";
+import { formatMuteRemaining, isMuted } from "@/lib/mute";
 import { toast } from "sonner";
 import { wailsError } from "@/lib/utils";
 
@@ -33,11 +38,26 @@ export function TargetDetailsPage() {
 
   if (!data) return <p className="text-sm text-muted-foreground">Loading target…</p>;
   const t = data.target;
+  const muted = isMuted(t.mutedUntil);
   const latencyData = (data.latencySeries ?? []).map((p) => ({
     time: formatTime(p.timestamp),
     latency: p.latency ?? 0,
     success: p.success ? 1 : 0,
   }));
+  const availability = (data.availability?.length ? data.availability : data.latencySeries ?? []).map((p) => ({
+    time: formatTime(p.timestamp),
+    up: "up" in p ? p.up : p.success,
+  }));
+
+  async function toggleMute() {
+    try {
+      const updated = await api.muteTarget(t.id, muted ? 0 : 3600);
+      setData((prev) => (prev ? { ...prev, target: updated } : prev));
+      toast.success(updated.mutedUntil ? "This target is quiet for 1 hour" : "Target unmuted");
+    } catch (err) {
+      toast.error(wailsError(err));
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -48,8 +68,17 @@ export function TargetDetailsPage() {
           </button>
           <h1 className="mt-1 text-2xl font-semibold">{t.name}</h1>
           <p className="font-mono text-sm text-muted-foreground">{t.host}</p>
+          <div className="mt-2">
+            <GroupBadge name={t.groupName} color={t.groupColor} />
+          </div>
         </div>
-        <StatusBadge status={t.lastStatus} />
+        <div className="flex items-center gap-2">
+          <Button variant={muted ? "default" : "outline"} size="sm" onClick={() => void toggleMute()}>
+            {muted ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+            {muted ? `Quiet ${formatMuteRemaining(t.mutedUntil)}` : "Mute 1 hour"}
+          </Button>
+          <StatusBadge status={t.lastStatus} />
+        </div>
       </div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Card>
@@ -76,18 +105,10 @@ export function TargetDetailsPage() {
         </Card>
         <Card className="xl:col-span-2">
           <CardHeader>
-            <CardTitle>Latency over time</CardTitle>
+            <CardTitle>Latency</CardTitle>
           </CardHeader>
           <CardContent className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={latencyData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="time" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <RTooltip />
-                <Line type="monotone" dataKey="latency" stroke="#22d3ee" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
+            <LatencyAreaChart data={latencyData} />
           </CardContent>
         </Card>
       </div>
@@ -97,32 +118,15 @@ export function TargetDetailsPage() {
             <CardTitle>Availability</CardTitle>
           </CardHeader>
           <CardContent className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={latencyData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="time" tick={{ fontSize: 11 }} />
-                <YAxis domain={[0, 1]} tick={{ fontSize: 11 }} />
-                <RTooltip />
-                <Area type="step" dataKey="success" stroke="#34d399" fill="#34d39933" />
-              </AreaChart>
-            </ResponsiveContainer>
+            <AvailabilityStrip points={availability} />
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Ping success / failure</CardTitle>
+            <CardTitle>Ping mix</CardTitle>
           </CardHeader>
-          <CardContent className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={[{ name: "Results", ok: data.metrics.successful, fail: data.metrics.failed }]}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <RTooltip />
-                <Bar dataKey="ok" fill="#34d399" />
-                <Bar dataKey="fail" fill="#fb7185" />
-              </BarChart>
-            </ResponsiveContainer>
+          <CardContent>
+            <ResultsDonut successful={data.metrics.successful} failed={data.metrics.failed} uptimePercent={data.metrics.uptimePercent} />
           </CardContent>
         </Card>
       </div>

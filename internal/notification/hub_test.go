@@ -68,6 +68,34 @@ func TestCooldownSuppressesRepeatAlerts(t *testing.T) {
 	}
 }
 
+func TestGlobalMuteSuppressesAlerts(t *testing.T) {
+	db, err := database.Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	settings := repository.NewSettingsRepository(db)
+	s := domain.DefaultSettings()
+	s.SMSEnabled = true
+	s.DesktopNotificationEnabled = false
+	s.WebhookEnabled = false
+	s.NotificationCooldownSeconds = 0
+	s.MutedUntil = domain.MuteUntil(3600)
+	if err := settings.Save(context.Background(), s); err != nil {
+		t.Fatal(err)
+	}
+	repo := repository.NewNotificationRepository(db)
+	p := &stubProvider{name: domain.ProviderSMS}
+	h := NewHub(settings, repo, nil, nil, p)
+	n := domain.Notification{Kind: domain.KindAlert, TargetID: "t1", TargetName: "API", Host: "1.1.1.1", Status: "OFFLINE"}
+	if err := h.Notify(context.Background(), n); err != nil {
+		t.Fatal(err)
+	}
+	if p.calls.Load() != 0 {
+		t.Fatalf("mute failed, calls=%d", p.calls.Load())
+	}
+}
+
 func TestSMSHTTPProvider(t *testing.T) {
 	var gotAuth string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

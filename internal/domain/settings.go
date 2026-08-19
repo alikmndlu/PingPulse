@@ -21,6 +21,7 @@ type Settings struct {
 	NotifyOnTimeout               bool   `json:"notifyOnTimeout"`
 	Theme                         string `json:"theme"`
 	LogLevel                      string `json:"logLevel"`
+	MutedUntil                    string `json:"mutedUntil"`
 }
 
 func DefaultSettings() Settings {
@@ -83,6 +84,9 @@ func (s Settings) Normalized() Settings {
 	case "debug", "info", "warn", "error":
 	default:
 		out.LogLevel = "info"
+	}
+	if !IsMuted(out.MutedUntil) {
+		out.MutedUntil = ""
 	}
 	return out
 }

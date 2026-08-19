@@ -9,11 +9,14 @@ const EVENTS = [
   "monitoring:started",
   "monitoring:stopped",
   "event:created",
+  "mute:changed",
+  "groups:changed",
 ];
 
 export function useWailsEvents() {
   const bump = useAppStore((s) => s.bump);
   const setMonitoring = useAppStore((s) => s.setMonitoring);
+  const setMutedUntil = useAppStore((s) => s.setMutedUntil);
 
   useEffect(() => {
     // Browser-only `pnpm dev` has no Wails webview runtime.
@@ -28,11 +31,14 @@ export function useWailsEvents() {
           const p = payload as { running?: boolean; paused?: boolean } | undefined;
           setMonitoring(Boolean(p?.running && !p?.paused), Boolean(p?.paused));
         }
+        if (name === "mute:changed" && typeof payload === "string") {
+          setMutedUntil(payload);
+        }
         bump();
       }),
     );
     return () => {
       offs.forEach((off) => off?.());
     };
-  }, [bump, setMonitoring]);
+  }, [bump, setMonitoring, setMutedUntil]);
 }

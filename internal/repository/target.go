@@ -23,7 +23,7 @@ func NewTargetRepository(db *sql.DB) *TargetRepository {
 }
 
 func (r *TargetRepository) List(ctx context.Context) ([]domain.Target, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT `+targetColumns+` FROM targets ORDER BY name COLLATE NOCASE ASC`)
+	rows, err := r.db.QueryContext(ctx, `SELECT `+targetColumns+` FROM targets t LEFT JOIN target_groups g ON g.id = t.group_id ORDER BY t.name COLLATE NOCASE ASC`)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +40,7 @@ func (r *TargetRepository) List(ctx context.Context) ([]domain.Target, error) {
 }
 
 func (r *TargetRepository) Get(ctx context.Context, id string) (domain.Target, error) {
-	row := r.db.QueryRowContext(ctx, `SELECT `+targetColumns+` FROM targets WHERE id = ?`, id)
+	row := r.db.QueryRowContext(ctx, `SELECT `+targetColumns+` FROM targets t LEFT JOIN target_groups g ON g.id = t.group_id WHERE t.id = ?`, id)
 	t, err := scanTarget(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return domain.Target{}, domain.ErrNotFound
@@ -49,7 +49,7 @@ func (r *TargetRepository) Get(ctx context.Context, id string) (domain.Target, e
 }
 
 func (r *TargetRepository) GetByHost(ctx context.Context, host string) (domain.Target, error) {
-	row := r.db.QueryRowContext(ctx, `SELECT `+targetColumns+` FROM targets WHERE lower(host) = lower(?)`, host)
+	row := r.db.QueryRowContext(ctx, `SELECT `+targetColumns+` FROM targets t LEFT JOIN target_groups g ON g.id = t.group_id WHERE lower(t.host) = lower(?)`, host)
 	t, err := scanTarget(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return domain.Target{}, domain.ErrNotFound
@@ -71,12 +71,12 @@ func (r *TargetRepository) Create(ctx context.Context, t domain.Target) (domain.
 		INSERT INTO targets (
 			id, name, host, enabled, interval_seconds, timeout_seconds, retry_count, retry_delay_seconds,
 			created_at, updated_at, last_status, last_latency_ms, last_checked_at, last_success_at, last_failure_at,
-			consecutive_failures, consecutive_successes
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			consecutive_failures, consecutive_successes, group_id, muted_until
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		t.ID, t.Name, t.Host, boolToInt(t.Enabled), t.Interval, t.Timeout, t.RetryCount, t.RetryDelay,
 		t.CreatedAt.Format(time.RFC3339Nano), t.UpdatedAt.Format(time.RFC3339Nano), t.LastStatus,
 		nullInt(t.LastLatency), nullTime(t.LastCheckedAt), nullTime(t.LastSuccessAt), nullTime(t.LastFailureAt),
-		t.ConsecutiveFailures, t.ConsecutiveSuccesses,
+		t.ConsecutiveFailures, t.ConsecutiveSuccesses, nullEmpty(t.GroupID), nullEmpty(t.MutedUntil),
 	)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "unique") {
@@ -84,7 +84,7 @@ func (r *TargetRepository) Create(ctx context.Context, t domain.Target) (domain.
 		}
 		return domain.Target{}, err
 	}
-	return t, nil
+	return r.Get(ctx, t.ID)
 }
 
 func (r *TargetRepository) Update(ctx context.Context, t domain.Target) (domain.Target, error) {
@@ -93,12 +93,12 @@ func (r *TargetRepository) Update(ctx context.Context, t domain.Target) (domain.
 		UPDATE targets SET
 			name = ?, host = ?, enabled = ?, interval_seconds = ?, timeout_seconds = ?, retry_count = ?, retry_delay_seconds = ?,
 			updated_at = ?, last_status = ?, last_latency_ms = ?, last_checked_at = ?, last_success_at = ?, last_failure_at = ?,
-			consecutive_failures = ?, consecutive_successes = ?
+			consecutive_failures = ?, consecutive_successes = ?, group_id = ?, muted_until = ?
 		WHERE id = ?`,
 		t.Name, t.Host, boolToInt(t.Enabled), t.Interval, t.Timeout, t.RetryCount, t.RetryDelay,
 		t.UpdatedAt.Format(time.RFC3339Nano), t.LastStatus, nullInt(t.LastLatency),
 		nullTime(t.LastCheckedAt), nullTime(t.LastSuccessAt), nullTime(t.LastFailureAt),
-		t.ConsecutiveFailures, t.ConsecutiveSuccesses, t.ID,
+		t.ConsecutiveFailures, t.ConsecutiveSuccesses, nullEmpty(t.GroupID), nullEmpty(t.MutedUntil), t.ID,
 	)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "unique") {
@@ -110,7 +110,7 @@ func (r *TargetRepository) Update(ctx context.Context, t domain.Target) (domain.
 	if n == 0 {
 		return domain.Target{}, domain.ErrNotFound
 	}
-	return t, nil
+	return r.Get(ctx, t.ID)
 }
 
 func (r *TargetRepository) Delete(ctx context.Context, id string) error {
@@ -189,9 +189,9 @@ func (r *TargetRepository) Metrics(ctx context.Context, targetID string) (domain
 	return m, nil
 }
 
-const targetColumns = `id, name, host, enabled, interval_seconds, timeout_seconds, retry_count, retry_delay_seconds,
-	created_at, updated_at, last_status, last_latency_ms, last_checked_at, last_success_at, last_failure_at,
-	consecutive_failures, consecutive_successes`
+const targetColumns = `t.id, t.name, t.host, t.enabled, t.interval_seconds, t.timeout_seconds, t.retry_count, t.retry_delay_seconds,
+	t.created_at, t.updated_at, t.last_status, t.last_latency_ms, t.last_checked_at, t.last_success_at, t.last_failure_at,
+	t.consecutive_failures, t.consecutive_successes, IFNULL(t.group_id,''), IFNULL(t.muted_until,''), IFNULL(g.name,''), IFNULL(g.color,'')`
 
 type scanner interface {
 	Scan(dest ...any) error
@@ -207,7 +207,7 @@ func scanTarget(s scanner) (domain.Target, error) {
 	err := s.Scan(
 		&t.ID, &t.Name, &t.Host, &enabled, &t.Interval, &t.Timeout, &t.RetryCount, &t.RetryDelay,
 		&created, &updated, &lastStatus, &latency, &checked, &successAt, &failAt,
-		&t.ConsecutiveFailures, &t.ConsecutiveSuccesses,
+		&t.ConsecutiveFailures, &t.ConsecutiveSuccesses, &t.GroupID, &t.MutedUntil, &t.GroupName, &t.GroupColor,
 	)
 	if err != nil {
 		return t, err
@@ -266,6 +266,13 @@ func nullString(v *string) any {
 		return nil
 	}
 	return *v
+}
+
+func nullEmpty(v string) any {
+	if strings.TrimSpace(v) == "" {
+		return nil
+	}
+	return v
 }
 
 func parseJSONMap(raw sql.NullString) map[string]string {
