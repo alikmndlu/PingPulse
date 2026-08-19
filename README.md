@@ -12,6 +12,7 @@ Ping on a schedule. Catch real outages. Alert on your terms.
 [![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Release](https://img.shields.io/github/v/release/alikmndlu/PingPulse?style=flat-square&label=release)](https://github.com/alikmndlu/PingPulse/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-22c55e?style=flat-square)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-111827?style=flat-square)](https://github.com/alikmndlu/PingPulse/releases)
 
 [Download](https://github.com/alikmndlu/PingPulse/releases/latest) · [Source](https://github.com/alikmndlu/PingPulse) · [Report an issue](https://github.com/alikmndlu/PingPulse/issues)
@@ -417,7 +418,7 @@ This is a personal desktop tool. Treat the machine it runs on as the trust bound
 
 ## License
 
-Use and modify freely for your own infrastructure monitoring. No warranty.
+PingPulse is released under the [MIT License](LICENSE). Copyright (c) 2026 Ali Kamandlu.
 
 ---
 
