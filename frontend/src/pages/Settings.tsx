@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { Download, ExternalLink, RefreshCw } from "lucide-react";
+import { EventsOn } from "@wailsjs/runtime/runtime";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { api } from "@/services/api";
 import { applyTheme, normalizeTheme, useAppStore } from "@/stores/app";
-import type { Settings } from "@/types";
+import type { Settings, UpdateInfo, UpdateProgress } from "@/types";
 import { toast } from "sonner";
 import { wailsError } from "@/lib/utils";
 
@@ -58,6 +60,7 @@ export function SettingsPage() {
           <Toggle label="Start monitoring automatically" checked={settings.startMonitoringAutomatically} onChange={(startMonitoringAutomatically) => void save({ ...settings, startMonitoringAutomatically })} />
         </CardContent>
       </Card>
+      <UpdatesCard />
       <Card>
         <CardHeader>
           <CardTitle>Monitoring</CardTitle>
@@ -116,6 +119,114 @@ export function SettingsPage() {
         </Button>
       </div>
     </div>
+  );
+}
+
+function UpdatesCard() {
+  const [version, setVersion] = useState("");
+  const [info, setInfo] = useState<UpdateInfo | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [installing, setInstalling] = useState(false);
+  const [progress, setProgress] = useState<UpdateProgress | null>(null);
+
+  useEffect(() => {
+    void api.getAppVersion().then(setVersion).catch(() => setVersion(""));
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("runtime" in window) || !(window as Window & { runtime?: unknown }).runtime) {
+      return;
+    }
+    const off = EventsOn("update:progress", (payload: UpdateProgress) => {
+      setProgress(payload);
+    });
+    return () => off?.();
+  }, []);
+
+  async function check() {
+    setChecking(true);
+    try {
+      const next = await api.checkForUpdate();
+      setInfo(next);
+      if (!next.available) {
+        toast.success(`PingPulse ${next.currentVersion} is up to date`);
+      }
+    } catch (err) {
+      toast.error(wailsError(err));
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  async function install() {
+    setInstalling(true);
+    setProgress({ percent: 0, bytes: 0, total: 0 });
+    try {
+      await api.installUpdate();
+      toast.success("Update downloaded. PingPulse will restart.");
+    } catch (err) {
+      setInstalling(false);
+      setProgress(null);
+      toast.error(wailsError(err));
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Updates</CardTitle>
+        <CardDescription>
+          Check GitHub Releases for a newer PingPulse build. Installing replaces this app and restarts it.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Installed version: <span className="font-medium text-foreground">{version || "…"}</span>
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" disabled={checking || installing} onClick={() => void check()}>
+            <RefreshCw className={`h-4 w-4 ${checking ? "animate-spin" : ""}`} />
+            {checking ? "Checking…" : "Check for updates"}
+          </Button>
+          <Button variant="outline" onClick={() => void api.openReleasePage()}>
+            <ExternalLink className="h-4 w-4" />
+            Open releases
+          </Button>
+        </div>
+        {info?.available && (
+          <div className="space-y-3 rounded-lg border border-border p-3">
+            <p className="text-sm font-medium">
+              {info.latestVersion} is available
+              {info.assetName ? ` (${info.assetName})` : ""}
+            </p>
+            {info.notes && (
+              <pre className="max-h-40 overflow-auto whitespace-pre-wrap text-xs text-muted-foreground">{info.notes}</pre>
+            )}
+            {info.canInstall ? (
+              <Button disabled={installing} onClick={() => void install()}>
+                <Download className="h-4 w-4" />
+                {installing ? "Downloading…" : `Install ${info.latestVersion}`}
+              </Button>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                In-app install is not available for this build. Download the release from GitHub instead.
+              </p>
+            )}
+            {installing && progress && (
+              <div className="space-y-1">
+                <div className="h-2 overflow-hidden rounded-full bg-muted">
+                  <div className="h-full bg-primary transition-all" style={{ width: `${Math.min(100, progress.percent)}%` }} />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {progress.percent}%
+                  {progress.total > 0 ? ` · ${Math.round(progress.bytes / 1048576)} / ${Math.round(progress.total / 1048576)} MB` : ""}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

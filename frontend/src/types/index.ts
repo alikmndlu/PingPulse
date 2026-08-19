@@ -195,3 +195,20 @@ export interface MonitoringStatus {
   paused: boolean;
   startedAt: string | null;
 }
+
+export interface UpdateInfo {
+  currentVersion: string;
+  latestVersion: string;
+  releaseUrl: string;
+  notes: string;
+  assetName: string;
+  assetUrl: string;
+  available: boolean;
+  canInstall: boolean;
+}
+
+export interface UpdateProgress {
+  percent: number;
+  bytes: number;
+  total: number;
+}

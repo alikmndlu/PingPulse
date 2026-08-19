@@ -20,6 +20,15 @@ const nav = [
   { to: "/settings", label: copy.nav.settings, icon: Settings },
 ];
 
+function AppVersion() {
+  const [version, setVersion] = useState("");
+  useEffect(() => {
+    void api.getAppVersion().then(setVersion).catch(() => {});
+  }, []);
+  if (!version) return null;
+  return <p className="mt-1 text-[11px] text-muted-foreground/80">{version}</p>;
+}
+
 export function AppLayout() {
   useWailsEvents();
   const monitoring = useAppStore((s) => s.monitoring);
@@ -99,7 +108,10 @@ export function AppLayout() {
               </NavLink>
             ))}
           </nav>
-          <p className="px-5 py-4 text-[11px] leading-relaxed text-muted-foreground">{copy.tagline}</p>
+          <div className="px-5 py-4">
+            <p className="text-[11px] leading-relaxed text-muted-foreground">{copy.tagline}</p>
+            <AppVersion />
+          </div>
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="flex h-14 items-center justify-between border-b border-border px-6">

@@ -78,7 +78,7 @@ jobs:
         shell: bash
         env:
           CGO_ENABLED: "1"
-        run: wails build -platform "${{ matrix.platform }}" -clean ${{ matrix.extra_flags }}
+        run: wails build -platform "${{ matrix.platform }}" -clean ${{ matrix.extra_flags }} -ldflags "-X pingpulse/internal/updater.Version=${{ github.ref_name }}"
 
       - name: Package Windows
         if: runner.os == 'Windows'

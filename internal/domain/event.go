@@ -36,6 +36,7 @@ const (
 	WailsEventCreated        = "event:created"
 	WailsMuteChanged         = "mute:changed"
 	WailsGroupsChanged       = "groups:changed"
+	WailsUpdateProgress      = "update:progress"
 )
 
 type StatusChangedPayload struct {

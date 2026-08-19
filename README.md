@@ -19,6 +19,7 @@ Built with **Go**, **Wails v2**, **React**, **TypeScript**, **Tailwind CSS**, an
 - Target details with latency, availability, and success/failure charts
 - JSON / CSV import and export
 - Dark / light theme, start on boot, minimize to tray
+- In-app updates from GitHub Releases (Settings → Check for updates)
 - Structured logging with secret redaction
 
 ## Architecture
@@ -33,6 +34,7 @@ internal/
   notification/    provider interface + SMS/webhook/desktop
   autostart/       OS startup registration
   tray/            system tray menu
+  updater/         GitHub release check and self-update
   logging/         slog JSON logs with redaction
   config/          user data paths
   impex/           JSON/CSV import-export
@@ -111,6 +113,8 @@ git push origin v1.0.0
 ```
 
 Tag names must start with `v` (`v1.0.0`, `v1.0.1`, …). After the workflow finishes, download the zip/tarballs from **GitHub → Releases**.
+
+The Settings page **Check for updates** button reads the latest GitHub Release, compares it with the running version, and can download and replace the current binary. The first build that includes this updater must be installed by hand; later versions can update themselves from inside the app.
 
 Linux releases are linked against **WebKitGTK 4.1**. Install the runtime before running the binary:
 
@@ -220,6 +224,7 @@ The UI subscribes to:
 - `monitoring:started`
 - `monitoring:stopped`
 - `event:created`
+- `update:progress`
 
 Dashboard auto-refresh is a light 15s safety net; live updates come from these events.
 
