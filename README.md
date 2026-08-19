@@ -45,12 +45,12 @@ The ping engine, scheduler, notifications, and database are independent packages
 
 ## Requirements
 
-- Go 1.22+
-- Node.js 18+
+- Go 1.25+
+- Node.js 24+
 - pnpm
-- Wails CLI v2 (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
+- Wails CLI v2 (`go install github.com/wailsapp/wails/v2/cmd/wails@v2.15.0`)
 - A C compiler for Wails desktop builds (GCC / MinGW-w64 on Windows, Xcode CLT on macOS, `gcc` on Linux)
-- Linux: `libgtk-3-dev` and `libwebkit2gtk-4.0-dev` (or 4.1)
+- Linux: `libgtk-3-dev` and `libwebkit2gtk-4.1-dev` (build with `-tags webkit2_41`)
 - Windows: WebView2 (bundled on recent Windows 10/11)
 
 ICMP notes:
@@ -96,7 +96,7 @@ Platform-specific:
 wails build -platform windows/amd64
 wails build -platform darwin/amd64
 wails build -platform darwin/arm64
-wails build -platform linux/amd64
+wails build -platform linux/amd64 -tags webkit2_41
 ```
 
 The binary is written to `build/bin`.
@@ -111,6 +111,16 @@ git push origin v1.0.0
 ```
 
 Tag names must start with `v` (`v1.0.0`, `v1.0.1`, …). After the workflow finishes, download the zip/tarballs from **GitHub → Releases**.
+
+Linux releases are linked against **WebKitGTK 4.1**. Install the runtime before running the binary:
+
+```bash
+# Debian / Ubuntu 24.04+
+sudo apt install libgtk-3-0 libwebkit2gtk-4.1-0
+
+# Fedora 40+
+sudo dnf install gtk3 webkit2gtk4.1
+```
 
 ## Configuration
 
