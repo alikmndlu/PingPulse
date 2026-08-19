@@ -1,27 +1,28 @@
 package domain
 
 type Settings struct {
-	StartOnBoot                   bool   `json:"startOnBoot"`
-	MinimizeToTray                bool   `json:"minimizeToTray"`
-	StartMonitoringAutomatically  bool   `json:"startMonitoringAutomatically"`
-	DefaultInterval               int    `json:"defaultInterval"`
-	DefaultTimeout                int    `json:"defaultTimeout"`
-	DefaultRetry                  int    `json:"defaultRetry"`
-	DefaultRetryDelay             int    `json:"defaultRetryDelay"`
-	FailureThreshold              int    `json:"failureThreshold"`
-	RecoveryThreshold             int    `json:"recoveryThreshold"`
-	SMSEnabled                    bool   `json:"smsEnabled"`
-	DesktopNotificationEnabled    bool   `json:"desktopNotificationEnabled"`
-	WebhookEnabled                bool   `json:"webhookEnabled"`
-	NotificationCooldownSeconds   int    `json:"notificationCooldownSeconds"`
-	HighLatencyThresholdMs        int    `json:"highLatencyThresholdMs"`
-	NotifyOnOffline               bool   `json:"notifyOnOffline"`
-	NotifyOnRecovery              bool   `json:"notifyOnRecovery"`
-	NotifyOnHighLatency           bool   `json:"notifyOnHighLatency"`
-	NotifyOnTimeout               bool   `json:"notifyOnTimeout"`
-	Theme                         string `json:"theme"`
-	LogLevel                      string `json:"logLevel"`
-	MutedUntil                    string `json:"mutedUntil"`
+	StartOnBoot                  bool   `json:"startOnBoot"`
+	MinimizeToTray               bool   `json:"minimizeToTray"`
+	StartMonitoringAutomatically bool   `json:"startMonitoringAutomatically"`
+	DefaultInterval              int    `json:"defaultInterval"`
+	DefaultTimeout               int    `json:"defaultTimeout"`
+	DefaultRetry                 int    `json:"defaultRetry"`
+	DefaultRetryDelay            int    `json:"defaultRetryDelay"`
+	FailureThreshold             int    `json:"failureThreshold"`
+	RecoveryThreshold            int    `json:"recoveryThreshold"`
+	SMSEnabled                   bool   `json:"smsEnabled"`
+	DesktopNotificationEnabled   bool   `json:"desktopNotificationEnabled"`
+	WebhookEnabled               bool   `json:"webhookEnabled"`
+	TelegramEnabled              bool   `json:"telegramEnabled"`
+	NotificationCooldownSeconds  int    `json:"notificationCooldownSeconds"`
+	HighLatencyThresholdMs       int    `json:"highLatencyThresholdMs"`
+	NotifyOnOffline              bool   `json:"notifyOnOffline"`
+	NotifyOnRecovery             bool   `json:"notifyOnRecovery"`
+	NotifyOnHighLatency          bool   `json:"notifyOnHighLatency"`
+	NotifyOnTimeout              bool   `json:"notifyOnTimeout"`
+	Theme                        string `json:"theme"`
+	LogLevel                     string `json:"logLevel"`
+	MutedUntil                   string `json:"mutedUntil"`
 }
 
 func DefaultSettings() Settings {
@@ -38,6 +39,7 @@ func DefaultSettings() Settings {
 		SMSEnabled:                   false,
 		DesktopNotificationEnabled:   true,
 		WebhookEnabled:               false,
+		TelegramEnabled:              false,
 		NotificationCooldownSeconds:  600,
 		HighLatencyThresholdMs:       500,
 		NotifyOnOffline:              true,

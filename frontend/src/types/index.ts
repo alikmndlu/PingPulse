@@ -118,6 +118,7 @@ export interface Settings {
   smsEnabled: boolean;
   desktopNotificationEnabled: boolean;
   webhookEnabled: boolean;
+  telegramEnabled: boolean;
   notificationCooldownSeconds: number;
   highLatencyThresholdMs: number;
   notifyOnOffline: boolean;

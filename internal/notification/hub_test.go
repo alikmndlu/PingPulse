@@ -194,6 +194,55 @@ func TestMelipayamakSMSProvider(t *testing.T) {
 	}
 }
 
+func TestTelegramProvider(t *testing.T) {
+	var (
+		gotPath   string
+		gotBody   string
+		gotMethod string
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotMethod = r.Method
+		body, _ := io.ReadAll(r.Body)
+		gotBody = string(body)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ok":true,"result":{}}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	db, err := database.Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	repo := repository.NewNotificationRepository(db)
+	if err := repo.Save(context.Background(), domain.NotificationConfig{
+		Provider:     domain.ProviderTelegram,
+		APIURL:       srv.URL,
+		APIKey:       "123:secret-token",
+		Recipient:    "-100123",
+		BodyTemplate: "{{name}} is {{status}}",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	p := NewTelegramProvider(repo)
+	err = p.Send(context.Background(), domain.Notification{
+		TargetName: "API", Host: "10.10.10.20", Status: "OFFLINE",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotMethod != "POST" {
+		t.Fatalf("method=%s", gotMethod)
+	}
+	if gotPath != "/bot123:secret-token/sendMessage" {
+		t.Fatalf("path=%s", gotPath)
+	}
+	if !contains(gotBody, `"chat_id":"-100123"`) || !contains(gotBody, `"text":"API is OFFLINE"`) {
+		t.Fatalf("body=%s", gotBody)
+	}
+}
+
 func TestHTTPProviderTimeout(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(50 * time.Millisecond)

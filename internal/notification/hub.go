@@ -155,9 +155,10 @@ func (h *Hub) allow(ctx context.Context, targetID, kind string, cooldownSec int)
 
 func enabledProviders(s domain.Settings) map[string]bool {
 	return map[string]bool{
-		domain.ProviderSMS:     s.SMSEnabled,
-		domain.ProviderDesktop: s.DesktopNotificationEnabled,
-		domain.ProviderWebhook: s.WebhookEnabled,
+		domain.ProviderSMS:      s.SMSEnabled,
+		domain.ProviderDesktop:  s.DesktopNotificationEnabled,
+		domain.ProviderWebhook:  s.WebhookEnabled,
+		domain.ProviderTelegram: s.TelegramEnabled,
 	}
 }
 

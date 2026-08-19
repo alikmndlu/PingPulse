@@ -78,6 +78,7 @@ func (a *App) startup(ctx context.Context) {
 	a.hub = notification.NewHub(a.settings, a.notifRepo, wailsEmitter{app: a}, a.logger.Logger,
 		notification.NewSMSProvider(a.notifRepo),
 		notification.NewWebhookProvider(a.notifRepo),
+		notification.NewTelegramProvider(a.notifRepo),
 		notification.NewDesktopProvider(),
 	)
 	a.engine = monitor.NewEngine(monitor.NewICMPPinger(), a.targets, a.results, a.events, a.settings, a.hub, wailsEmitter{app: a}, a.logger.Logger)
@@ -486,12 +487,20 @@ func (a *App) GetNotificationConfig(provider string) (domain.NotificationConfig,
 	if c.Provider == domain.ProviderSMS && strings.TrimSpace(c.APIURL) == "" {
 		c.APIURL = domain.DefaultMelipayamakURL()
 	}
+	if c.Provider == domain.ProviderTelegram {
+		if strings.TrimSpace(c.APIURL) == "" {
+			c.APIURL = domain.DefaultTelegramAPI()
+		}
+		if strings.TrimSpace(c.BodyTemplate) == "" {
+			c.BodyTemplate = domain.DefaultTelegramTemplate()
+		}
+	}
 	return maskConfig(c), nil
 }
 
 func (a *App) UpdateNotificationConfig(c domain.NotificationConfig) (domain.NotificationConfig, error) {
 	ctx := a.requestContext()
-	if c.Provider != domain.ProviderSMS && c.Provider != domain.ProviderWebhook {
+	if c.Provider != domain.ProviderSMS && c.Provider != domain.ProviderWebhook && c.Provider != domain.ProviderTelegram {
 		return c, domain.NewValidationError("provider", "unsupported provider")
 	}
 	existing, err := a.notifRepo.Get(ctx, c.Provider)

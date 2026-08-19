@@ -135,6 +135,9 @@ func defaultConfig(provider string) domain.NotificationConfig {
 		c.BodyTemplate = domain.DefaultSMSTemplate()
 	case domain.ProviderWebhook:
 		c.BodyTemplate = domain.DefaultWebhookTemplate()
+	case domain.ProviderTelegram:
+		c.APIURL = domain.DefaultTelegramAPI()
+		c.BodyTemplate = domain.DefaultTelegramTemplate()
 	}
 	return c
 }

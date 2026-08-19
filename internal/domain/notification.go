@@ -10,17 +10,17 @@ const (
 )
 
 type Notification struct {
-	Kind         NotificationKind
-	Title        string
-	Body         string
-	TargetID     string
-	TargetName   string
-	Host         string
-	Status       string
-	Failures     int
-	LatencyMs    *int64
-	LastSuccess  string
-	OccurredAt   string
+	Kind        NotificationKind
+	Title       string
+	Body        string
+	TargetID    string
+	TargetName  string
+	Host        string
+	Status      string
+	Failures    int
+	LatencyMs   *int64
+	LastSuccess string
+	OccurredAt  string
 }
 
 type NotificationConfig struct {
@@ -38,9 +38,10 @@ type NotificationConfig struct {
 }
 
 const (
-	ProviderSMS     = "sms"
-	ProviderDesktop = "desktop"
-	ProviderWebhook = "webhook"
+	ProviderSMS      = "sms"
+	ProviderDesktop  = "desktop"
+	ProviderWebhook  = "webhook"
+	ProviderTelegram = "telegram"
 )
 
 func DefaultMelipayamakURL() string {
@@ -64,6 +65,20 @@ Target: {{name}}
 Host: {{host}}
 Status: {{status}}
 Latency: {{latency}}`
+}
+
+func DefaultTelegramAPI() string {
+	return "https://api.telegram.org"
+}
+
+func DefaultTelegramTemplate() string {
+	return `PingPulse
+
+{{name}} ({{host}})
+Status: {{status}}
+Failures: {{failures}}
+Last success: {{lastSuccess}}
+Time: {{time}}`
 }
 
 func DefaultWebhookTemplate() string {

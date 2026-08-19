@@ -29,21 +29,25 @@ export function NotificationsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [sms, setSms] = useState<NotificationConfig>(emptyConfig("sms"));
   const [webhook, setWebhook] = useState<NotificationConfig>(emptyConfig("webhook"));
+  const [telegram, setTelegram] = useState<NotificationConfig>(emptyConfig("telegram"));
   const [smsKey, setSmsKey] = useState("");
   const [webhookKey, setWebhookKey] = useState("");
+  const [telegramKey, setTelegramKey] = useState("");
   const [smsHeaders, setSmsHeaders] = useState("{}");
   const [webhookHeaders, setWebhookHeaders] = useState("{}");
 
   async function load() {
     try {
-      const [s, smsCfg, hookCfg] = await Promise.all([
+      const [s, smsCfg, hookCfg, tgCfg] = await Promise.all([
         api.getSettings(),
         api.getNotificationConfig("sms"),
         api.getNotificationConfig("webhook"),
+        api.getNotificationConfig("telegram"),
       ]);
       setSettings(s);
       setSms(smsCfg);
       setWebhook(hookCfg);
+      setTelegram(tgCfg);
       setSmsHeaders(JSON.stringify(smsCfg.customHeaders ?? {}, null, 2));
       setWebhookHeaders(JSON.stringify(hookCfg.customHeaders ?? {}, null, 2));
     } catch (err) {
@@ -69,6 +73,7 @@ export function NotificationsPage() {
       const headers = JSON.parse(headersRaw || "{}") as Record<string, string>;
       const saved = await api.updateNotificationConfig({ ...cfg, apiKey: key, customHeaders: headers });
       if (cfg.provider === "sms") setSms(saved);
+      else if (cfg.provider === "telegram") setTelegram(saved);
       else setWebhook(saved);
       toast.success(`${cfg.provider.toUpperCase()} settings saved`);
     } catch (err) {
@@ -98,8 +103,9 @@ export function NotificationsPage() {
           <CardTitle>Channels</CardTitle>
           <CardDescription>Enable providers independently. Secrets are stored locally and never shown again.</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-3">
+        <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Toggle label="SMS (Melipayamak)" checked={settings.smsEnabled} onChange={(v) => void saveSettings({ ...settings, smsEnabled: v })} />
+          <Toggle label="Telegram" checked={settings.telegramEnabled} onChange={(v) => void saveSettings({ ...settings, telegramEnabled: v })} />
           <Toggle label="Desktop" checked={settings.desktopNotificationEnabled} onChange={(v) => void saveSettings({ ...settings, desktopNotificationEnabled: v })} />
           <Toggle label="Webhook" checked={settings.webhookEnabled} onChange={(v) => void saveSettings({ ...settings, webhookEnabled: v })} />
         </CardContent>
@@ -117,11 +123,49 @@ export function NotificationsPage() {
           <Field label="Cooldown (seconds)" type="number" value={settings.notificationCooldownSeconds} onChange={(v) => void saveSettings({ ...settings, notificationCooldownSeconds: Number(v) })} />
         </CardContent>
       </Card>
-      <Tabs defaultValue="sms">
+      <Tabs defaultValue="telegram">
         <TabsList>
+          <TabsTrigger value="telegram">Telegram</TabsTrigger>
           <TabsTrigger value="sms">Melipayamak SMS</TabsTrigger>
           <TabsTrigger value="webhook">Webhook</TabsTrigger>
         </TabsList>
+        <TabsContent value="telegram">
+          <Card>
+            <CardHeader>
+              <CardTitle>Telegram bot</CardTitle>
+              <CardDescription>
+                Create a bot with BotFather, paste the token here, then send the bot a message and put that chat ID below. For a group, add the bot and use the group chat ID (often starts with -100).
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              <div className="grid gap-2">
+                <Label>Bot token</Label>
+                <Input
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder={telegram.apiKeySet ? "••••••••  (set, hidden)" : "123456:ABC-token-from-BotFather"}
+                  value={telegramKey}
+                  onChange={(e) => setTelegramKey(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Chat ID</Label>
+                <Input value={telegram.recipient} placeholder="123456789 or -1001234567890" onChange={(e) => setTelegram({ ...telegram, recipient: e.target.value })} />
+              </div>
+              <div className="grid gap-2">
+                <Label>Message template</Label>
+                <Textarea rows={8} value={telegram.bodyTemplate} onChange={(e) => setTelegram({ ...telegram, bodyTemplate: e.target.value })} />
+                <p className="text-xs text-muted-foreground">Placeholders: {"{{name}} {{host}} {{status}} {{failures}} {{latency}} {{lastSuccess}} {{time}}"}</p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => void test("telegram")}>
+                  Send test
+                </Button>
+                <Button onClick={() => void saveProvider(telegram, telegramKey, "{}")}>Save Telegram</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
         <TabsContent value="sms">
           <ProviderForm
             title="Melipayamak SMS"

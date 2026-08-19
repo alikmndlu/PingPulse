@@ -429,6 +429,7 @@ export namespace domain {
 	    smsEnabled: boolean;
 	    desktopNotificationEnabled: boolean;
 	    webhookEnabled: boolean;
+	    telegramEnabled: boolean;
 	    notificationCooldownSeconds: number;
 	    highLatencyThresholdMs: number;
 	    notifyOnOffline: boolean;
@@ -457,6 +458,7 @@ export namespace domain {
 	        this.smsEnabled = source["smsEnabled"];
 	        this.desktopNotificationEnabled = source["desktopNotificationEnabled"];
 	        this.webhookEnabled = source["webhookEnabled"];
+	        this.telegramEnabled = source["telegramEnabled"];
 	        this.notificationCooldownSeconds = source["notificationCooldownSeconds"];
 	        this.highLatencyThresholdMs = source["highLatencyThresholdMs"];
 	        this.notifyOnOffline = source["notifyOnOffline"];
