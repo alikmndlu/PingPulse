@@ -1,0 +1,21 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "PingPulse",
+  "outputfilename": "PingPulse",
+  "frontend:install": "pnpm install",
+  "frontend:build": "pnpm run build",
+  "frontend:dev:watcher": "pnpm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "wailsjsdir": "./frontend",
+  "author": {
+    "name": "PingPulse",
+    "email": ""
+  },
+  "info": {
+    "companyName": "PingPulse",
+    "productName": "PingPulse",
+    "productVersion": "1.0.0",
+    "copyright": "Copyright © PingPulse",
+    "comments": "Know when your infrastructure goes silent."
+  }
+}
