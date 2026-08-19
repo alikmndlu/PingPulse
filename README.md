@@ -101,6 +101,17 @@ wails build -platform linux/amd64
 
 The binary is written to `build/bin`.
 
+## GitHub Release
+
+Pushing a version tag starts a GitHub Action that builds Windows, macOS, and Linux binaries and publishes them on the Releases page.
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Tag names must start with `v` (`v1.0.0`, `v1.0.1`, …). After the workflow finishes, download the zip/tarballs from **GitHub → Releases**.
+
 ## Configuration
 
 Settings live in the SQLite database (not env files):
