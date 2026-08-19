@@ -128,7 +128,20 @@ jobs:
 
             ### macOS
             Download `PingPulse-${{ github.ref_name }}-darwin-universal.tar.gz`, extract it, and open `PingPulse.app`.
-            If macOS blocks it, open **System Settings → Privacy & Security** and choose **Open Anyway**.
+
+            These builds are unsigned, so macOS Gatekeeper will block the first launch. That is expected:
+
+            1. Click **Done** on the warning — not Move to Trash.
+            2. Open **System Settings → Privacy & Security**.
+            3. Under **Security**, click **Open Anyway** next to PingPulse.
+            4. Open `PingPulse.app` again.
+
+            Or in Terminal:
+
+            ```bash
+            xattr -cr ~/Downloads/PingPulse.app
+            open ~/Downloads/PingPulse.app
+            ```
 
             ### Linux
             This build targets WebKitGTK 4.1 (Ubuntu 24.04+, Fedora 40+, Debian 12+).

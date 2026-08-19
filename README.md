@@ -162,7 +162,19 @@ sudo apt install libgtk-3-0 libwebkit2gtk-4.1-0
 sudo dnf install gtk3 webkit2gtk4.1
 ```
 
-If macOS blocks the app: **System Settings → Privacy & Security → Open Anyway**.
+macOS builds are unsigned (no Apple Developer ID / notarization yet), so Gatekeeper will block the first launch. That warning is expected.
+
+1. In the **"PingPulse" Not Opened** dialog, click **Done** — not Move to Trash.
+2. Open **System Settings → Privacy & Security**.
+3. Scroll to **Security**. Next to *“PingPulse was blocked…”* click **Open Anyway**.
+4. Confirm, then open `PingPulse.app` again.
+
+Or strip the download quarantine and launch from Terminal:
+
+```bash
+xattr -cr ~/Downloads/PingPulse.app
+open ~/Downloads/PingPulse.app
+```
 
 ### Develop from source
 
