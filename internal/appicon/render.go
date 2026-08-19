@@ -10,9 +10,8 @@ import (
 )
 
 var (
-	bg      = color.NRGBA{R: 0x0b, G: 0x12, B: 0x20, A: 0xff}
-	cyan    = color.NRGBA{R: 0x22, G: 0xd3, B: 0xee, A: 0xff}
-	cyanDim = color.NRGBA{R: 0x22, G: 0xd3, B: 0xee, A: 0x55}
+	bg   = color.NRGBA{R: 0x0b, G: 0x12, B: 0x20, A: 0xff}
+	cyan = color.NRGBA{R: 0x22, G: 0xd3, B: 0xee, A: 0xff}
 )
 
 type vec struct{ x, y float64 }
@@ -22,7 +21,7 @@ func Draw(size int) *image.NRGBA {
 		size = 16
 	}
 	img := image.NewNRGBA(image.Rect(0, 0, size, size))
-	fill(img, bg)
+	paintPlate(img, size)
 
 	s := float64(size)
 	pts := pulsePoints(size)
@@ -31,21 +30,59 @@ func Draw(size int) *image.NRGBA {
 		pts[i].y *= s
 	}
 
-	if size >= 24 {
-		stampDisc(img, 0.50*s, 0.52*s, s*0.30, color.NRGBA{R: 0x22, G: 0xd3, B: 0xee, A: 0x22})
-	}
 	if size >= 48 {
-		drawArc(img, 0.50*s, 0.50*s, s*0.40, s*0.022, math.Pi*0.28, math.Pi*1.72, cyanDim)
-	}
-	if size >= 96 {
-		drawArc(img, 0.50*s, 0.50*s, s*0.47, s*0.014, math.Pi*0.22, math.Pi*1.78, color.NRGBA{R: 0x22, G: 0xd3, B: 0xee, A: 0x32})
+		stampDisc(img, 0.50*s, 0.52*s, s*0.24, color.NRGBA{R: 0x22, G: 0xd3, B: 0xee, A: 0x18})
 	}
 
 	baseW, spikeW := strokeWidths(size)
 	drawPulse(img, pts, baseW, spikeW)
 	peak := pts[peakIndex(pts)]
-	stampDisc(img, peak.x, peak.y, spikeW*0.55, cyan)
+	stampDisc(img, peak.x, peak.y, spikeW*0.48, cyan)
+	maskToPlate(img, size)
 	return img
+}
+
+func plateCoverage(px, py float64, size int) float64 {
+	s := float64(size)
+	c := s / 2
+	r := c - 0.55
+	d := math.Hypot(px-c, py-c) - r
+	return smoothstep(0.9, -0.9, d)
+}
+
+func paintPlate(img *image.NRGBA, size int) {
+	for y := 0; y < size; y++ {
+		for x := 0; x < size; x++ {
+			cov := plateCoverage(float64(x)+0.5, float64(y)+0.5, size)
+			if cov <= 0 {
+				continue
+			}
+			img.SetNRGBA(x, y, color.NRGBA{
+				R: bg.R,
+				G: bg.G,
+				B: bg.B,
+				A: uint8(math.Round(255 * cov)),
+			})
+		}
+	}
+}
+
+func maskToPlate(img *image.NRGBA, size int) {
+	for y := 0; y < size; y++ {
+		for x := 0; x < size; x++ {
+			cov := plateCoverage(float64(x)+0.5, float64(y)+0.5, size)
+			c := img.NRGBAAt(x, y)
+			if cov <= 0 {
+				img.SetNRGBA(x, y, color.NRGBA{})
+				continue
+			}
+			if cov >= 1 {
+				continue
+			}
+			c.A = uint8(math.Round(float64(c.A) * cov))
+			img.SetNRGBA(x, y, c)
+		}
+	}
 }
 
 func strokeWidths(size int) (base, spike float64) {
@@ -79,26 +116,26 @@ func drawPulse(img *image.NRGBA, pts []vec, baseW, spikeW float64) {
 func pulsePoints(size int) []vec {
 	if size <= 40 {
 		return []vec{
-			{0.06, 0.58},
-			{0.28, 0.58},
-			{0.40, 0.14},
-			{0.52, 0.86},
-			{0.64, 0.58},
-			{0.94, 0.58},
+			{0.16, 0.56},
+			{0.32, 0.56},
+			{0.42, 0.20},
+			{0.52, 0.80},
+			{0.64, 0.56},
+			{0.84, 0.56},
 		}
 	}
 	return []vec{
-		{0.10, 0.54},
-		{0.24, 0.54},
-		{0.30, 0.40},
-		{0.36, 0.54},
-		{0.42, 0.54},
-		{0.48, 0.16},
-		{0.54, 0.84},
-		{0.60, 0.54},
-		{0.70, 0.38},
-		{0.80, 0.54},
-		{0.90, 0.54},
+		{0.18, 0.54},
+		{0.30, 0.54},
+		{0.35, 0.42},
+		{0.40, 0.54},
+		{0.45, 0.54},
+		{0.50, 0.20},
+		{0.55, 0.80},
+		{0.61, 0.54},
+		{0.70, 0.40},
+		{0.78, 0.54},
+		{0.82, 0.54},
 	}
 }
 
@@ -112,14 +149,6 @@ func peakIndex(pts []vec) int {
 	return best
 }
 
-func fill(img *image.NRGBA, c color.NRGBA) {
-	for y := 0; y < img.Bounds().Dy(); y++ {
-		for x := 0; x < img.Bounds().Dx(); x++ {
-			img.SetNRGBA(x, y, c)
-		}
-	}
-}
-
 func drawSeg(img *image.NRGBA, a, b vec, halfW float64, c color.NRGBA) {
 	dx, dy := b.x-a.x, b.y-a.y
 	dist := math.Hypot(dx, dy)
@@ -131,17 +160,6 @@ func drawSeg(img *image.NRGBA, a, b vec, halfW float64, c color.NRGBA) {
 	for i := 0; i <= steps; i++ {
 		t := float64(i) / float64(steps)
 		stampDisc(img, a.x+dx*t, a.y+dy*t, halfW, c)
-	}
-}
-
-func drawArc(img *image.NRGBA, cx, cy, radius, halfW, start, end float64, c color.NRGBA) {
-	steps := int(radius*end) + 32
-	prev := vec{cx + math.Cos(start)*radius, cy + math.Sin(start)*radius}
-	for i := 1; i <= steps; i++ {
-		a := start + (end-start)*float64(i)/float64(steps)
-		p := vec{cx + math.Cos(a)*radius, cy + math.Sin(a)*radius}
-		drawSeg(img, prev, p, halfW, c)
-		prev = p
 	}
 }
 
@@ -195,12 +213,17 @@ func blend(img *image.NRGBA, x, y int, src color.NRGBA, cov float64) {
 	if sa <= 0 {
 		return
 	}
-	inv := 1 - sa
+	da := float64(dst.A) / 255
+	outA := sa + da*(1-sa)
+	if outA <= 0 {
+		img.SetNRGBA(x, y, color.NRGBA{})
+		return
+	}
 	out := color.NRGBA{
-		R: uint8(float64(src.R)*sa + float64(dst.R)*inv + 0.5),
-		G: uint8(float64(src.G)*sa + float64(dst.G)*inv + 0.5),
-		B: uint8(float64(src.B)*sa + float64(dst.B)*inv + 0.5),
-		A: 255,
+		R: uint8((float64(src.R)*sa+float64(dst.R)*da*(1-sa))/outA + 0.5),
+		G: uint8((float64(src.G)*sa+float64(dst.G)*da*(1-sa))/outA + 0.5),
+		B: uint8((float64(src.B)*sa+float64(dst.B)*da*(1-sa))/outA + 0.5),
+		A: uint8(outA*255 + 0.5),
 	}
 	img.SetNRGBA(x, y, out)
 }

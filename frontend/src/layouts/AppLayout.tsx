@@ -75,7 +75,7 @@ export function AppLayout() {
       <div className="flex min-h-screen bg-background text-foreground">
         <aside className="flex w-60 shrink-0 flex-col border-e border-border bg-card/40">
           <div className="flex items-center gap-3 px-5 py-5">
-            <img src="/appicon.png" alt="" className="h-9 w-9 rounded-lg shadow-sm ring-1 ring-white/10" />
+            <img src="/appicon.png" alt="" className="h-9 w-9" />
             <div>
               <p className="text-sm font-semibold">{copy.appName}</p>
               <p className="text-[11px] text-muted-foreground">Infrastructure pulse</p>

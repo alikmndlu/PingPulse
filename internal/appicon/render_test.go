@@ -20,6 +20,13 @@ func TestDrawSizes(t *testing.T) {
 		if buf.Len() < 64 {
 			t.Fatalf("png too small for %d", size)
 		}
+		if img.NRGBAAt(0, 0).A != 0 || img.NRGBAAt(size-1, 0).A != 0 {
+			t.Fatalf("size %d corners should be transparent", size)
+		}
+		mid := img.NRGBAAt(size/2, size/2)
+		if mid.A < 200 {
+			t.Fatalf("size %d center should be opaque, a=%d", size, mid.A)
+		}
 	}
 	ico, err := EncodeICO(16, 32, 256)
 	if err != nil || len(ico) < 100 {
