@@ -1,10 +1,8 @@
 package tray
 
 import (
-	"bytes"
-	"encoding/binary"
-	"image/png"
 	"log/slog"
+	"runtime"
 	"sync/atomic"
 
 	"pingpulse/internal/appicon"
@@ -30,14 +28,33 @@ type Tray struct {
 }
 
 func New(iconPNG []byte, logger *slog.Logger, cb Callbacks) *Tray {
-	ico, err := appicon.EncodeICO(16, 32, 48)
-	if err != nil || len(ico) == 0 {
-		ico = PNGToICO(iconPNG)
+	return &Tray{icon: trayIconBytes(iconPNG), logger: logger, cb: cb}
+}
+
+// trayIconBytes picks a format StatusNotifier / AppIndicator can actually render.
+// Linux decodes via image.Decode (PNG/JPEG only). Windows expects .ico bytes.
+func trayIconBytes(fallbackPNG []byte) []byte {
+	switch runtime.GOOS {
+	case "windows":
+		if ico, err := appicon.EncodeICO(16, 32, 48); err == nil && len(ico) > 0 {
+			return ico
+		}
+		if len(fallbackPNG) > 0 {
+			return PNGToICO(fallbackPNG)
+		}
+	default:
+		// Prefer a sharp tray-sized PNG; StatusNotifierItem.IconPixmap needs decodable image data.
+		if png, err := appicon.EncodePNG(32); err == nil && len(png) > 0 {
+			return png
+		}
+		if len(fallbackPNG) > 0 {
+			return fallbackPNG
+		}
+		if png, err := appicon.EncodePNG(48); err == nil {
+			return png
+		}
 	}
-	if len(ico) == 0 {
-		ico = iconPNG
-	}
-	return &Tray{icon: ico, logger: logger, cb: cb}
+	return fallbackPNG
 }
 
 func (t *Tray) Start() {
@@ -69,7 +86,9 @@ func (t *Tray) SetOfflineCount(n int) {
 
 func (t *Tray) onReady() {
 	t.ready.Store(true)
-	systray.SetIcon(t.icon)
+	if len(t.icon) > 0 {
+		systray.SetIcon(t.icon)
+	}
 	systray.SetTitle("PingPulse")
 	systray.SetTooltip("PingPulse")
 	open := systray.AddMenuItem("Open PingPulse", "Show the PingPulse window")
@@ -105,37 +124,6 @@ func (t *Tray) onReady() {
 		}
 		systray.Quit()
 	})
-}
-
-func PNGToICO(pngBytes []byte) []byte {
-	if len(pngBytes) == 0 {
-		return nil
-	}
-	cfg, err := png.DecodeConfig(bytes.NewReader(pngBytes))
-	if err != nil {
-		return pngBytes
-	}
-	w, h := cfg.Width, cfg.Height
-	if w > 256 {
-		w = 256
-	}
-	if h > 256 {
-		h = 256
-	}
-	buf := new(bytes.Buffer)
-	_ = binary.Write(buf, binary.LittleEndian, uint16(0))
-	_ = binary.Write(buf, binary.LittleEndian, uint16(1))
-	_ = binary.Write(buf, binary.LittleEndian, uint16(1))
-	buf.WriteByte(byte(w))
-	buf.WriteByte(byte(h))
-	buf.WriteByte(0)
-	buf.WriteByte(0)
-	_ = binary.Write(buf, binary.LittleEndian, uint16(1))
-	_ = binary.Write(buf, binary.LittleEndian, uint16(32))
-	_ = binary.Write(buf, binary.LittleEndian, uint32(len(pngBytes)))
-	_ = binary.Write(buf, binary.LittleEndian, uint32(22))
-	buf.Write(pngBytes)
-	return buf.Bytes()
 }
 
 func itoa(n int) string {
