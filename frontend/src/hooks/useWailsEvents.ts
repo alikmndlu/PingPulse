@@ -11,6 +11,8 @@ const EVENTS = [
   "event:created",
   "mute:changed",
   "groups:changed",
+  "incident:updated",
+  "maintenance:changed",
 ];
 
 export function useWailsEvents() {

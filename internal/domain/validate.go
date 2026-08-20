@@ -2,6 +2,7 @@ package domain
 
 import (
 	"net"
+	"net/url"
 	"regexp"
 	"strings"
 	"unicode"
@@ -37,6 +38,47 @@ func NormalizeHost(host string) string {
 		}
 	}
 	return strings.TrimSpace(host)
+}
+
+func NormalizeHTTPURL(raw string) (string, string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", "", NewValidationError("httpUrl", "HTTP URL is required")
+	}
+	if !strings.Contains(raw, "://") {
+		raw = "https://" + raw
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		return "", "", NewValidationError("httpUrl", "HTTP URL is invalid")
+	}
+	scheme := strings.ToLower(u.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return "", "", NewValidationError("httpUrl", "HTTP URL must use http or https")
+	}
+	host := NormalizeHost(u.Host)
+	if err := ValidateHost(host); err != nil {
+		return "", "", err
+	}
+	u.Scheme = scheme
+	u.Host = u.Hostname()
+	if u.Port() != "" {
+		u.Host = net.JoinHostPort(u.Hostname(), u.Port())
+	}
+	if u.Path == "" {
+		u.Path = "/"
+	}
+	return u.String(), host, nil
+}
+
+func NormalizeHTTPMethod(method string) string {
+	method = strings.ToUpper(strings.TrimSpace(method))
+	switch method {
+	case "GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS":
+		return method
+	default:
+		return "GET"
+	}
 }
 
 func ValidateHost(host string) error {
@@ -107,24 +149,105 @@ func ApplyTargetDefaults(in CreateTargetInput, settings Settings) CreateTargetIn
 	if in.RetryDelay != nil {
 		delay = *in.RetryDelay
 	}
-	return CreateTargetInput{
-		Name:       strings.TrimSpace(in.Name),
-		Host:       NormalizeHost(in.Host),
-		Enabled:    &enabled,
-		Interval:   &interval,
-		Timeout:    &timeout,
-		RetryCount: &retry,
-		RetryDelay: &delay,
-		GroupID:    strings.TrimSpace(in.GroupID),
+	probe := NormalizeProbeType(in.ProbeType)
+	expect := 200
+	if in.ExpectStatus != nil {
+		expect = *in.ExpectStatus
 	}
+	tcpPort := 0
+	if in.TCPPort != nil {
+		tcpPort = *in.TCPPort
+	}
+	method := NormalizeHTTPMethod(in.HTTPMethod)
+	host := strings.TrimSpace(in.Host)
+	httpURL := strings.TrimSpace(in.HTTPURL)
+	switch probe {
+	case ProbeHTTP:
+		if httpURL == "" && host != "" {
+			httpURL = host
+		}
+		if normalized, derived, err := NormalizeHTTPURL(httpURL); err == nil {
+			httpURL = normalized
+			host = derived
+		}
+	case ProbeTCP:
+		host = NormalizeHost(host)
+		if tcpPort == 0 {
+			if h, p, err := net.SplitHostPort(strings.TrimSpace(in.Host)); err == nil {
+				host = NormalizeHost(h)
+				if n, err := parsePort(p); err == nil {
+					tcpPort = n
+				}
+			}
+		}
+		httpURL = ""
+		method = "GET"
+		expect = 200
+	default:
+		host = NormalizeHost(host)
+		httpURL = ""
+		method = "GET"
+		expect = 200
+		tcpPort = 0
+	}
+	return CreateTargetInput{
+		Name:         strings.TrimSpace(in.Name),
+		Host:         host,
+		Enabled:      &enabled,
+		Interval:     &interval,
+		Timeout:      &timeout,
+		RetryCount:   &retry,
+		RetryDelay:   &delay,
+		GroupID:      strings.TrimSpace(in.GroupID),
+		ProbeType:    string(probe),
+		HTTPURL:      httpURL,
+		HTTPMethod:   method,
+		ExpectStatus: &expect,
+		TCPPort:      &tcpPort,
+	}
+}
+
+func parsePort(p string) (int, error) {
+	n := 0
+	for _, r := range p {
+		if r < '0' || r > '9' {
+			return 0, NewValidationError("tcpPort", "invalid port")
+		}
+		n = n*10 + int(r-'0')
+	}
+	return n, nil
 }
 
 func ValidateCreateTarget(in CreateTargetInput) error {
 	if err := ValidateTargetName(in.Name); err != nil {
 		return err
 	}
-	if err := ValidateHost(in.Host); err != nil {
-		return err
+	probe := NormalizeProbeType(in.ProbeType)
+	switch probe {
+	case ProbeHTTP:
+		if _, _, err := NormalizeHTTPURL(in.HTTPURL); err != nil {
+			return err
+		}
+		if in.ExpectStatus != nil {
+			if err := ValidatePositiveRange("expectStatus", *in.ExpectStatus, 100, 599); err != nil {
+				return err
+			}
+		}
+	case ProbeTCP:
+		if err := ValidateHost(in.Host); err != nil {
+			return err
+		}
+		port := 0
+		if in.TCPPort != nil {
+			port = *in.TCPPort
+		}
+		if err := ValidatePositiveRange("tcpPort", port, 1, 65535); err != nil {
+			return err
+		}
+	default:
+		if err := ValidateHost(in.Host); err != nil {
+			return err
+		}
 	}
 	if in.Interval != nil {
 		if err := ValidatePositiveRange("interval", *in.Interval, 5, 86400); err != nil {
@@ -179,4 +302,15 @@ func NormalizeGroupColor(color string) (string, error) {
 		}
 	}
 	return color, nil
+}
+
+func ValidateMaintenanceName(name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return NewValidationError("name", "name is required")
+	}
+	if len(name) > 120 {
+		return NewValidationError("name", "name must be 120 characters or fewer")
+	}
+	return nil
 }

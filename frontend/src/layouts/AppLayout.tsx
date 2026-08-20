@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { Bell, BellOff, History, LayoutDashboard, Monitor, Moon, Settings, Sun, Server } from "lucide-react";
+import { Bell, BellOff, History, LayoutDashboard, Monitor, Moon, Settings, Sun, Server, Siren, Wrench } from "lucide-react";
 import { useEffect, useState } from "react";
 import { copy } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -15,6 +15,8 @@ import { wailsError } from "@/lib/utils";
 const nav = [
   { to: "/", label: copy.nav.dashboard, icon: LayoutDashboard },
   { to: "/targets", label: copy.nav.targets, icon: Server },
+  { to: "/incidents", label: copy.nav.incidents, icon: Siren },
+  { to: "/maintenance", label: copy.nav.maintenance, icon: Wrench },
   { to: "/history", label: copy.nav.history, icon: History },
   { to: "/notifications", label: copy.nav.notifications, icon: Bell },
   { to: "/settings", label: copy.nav.settings, icon: Settings },

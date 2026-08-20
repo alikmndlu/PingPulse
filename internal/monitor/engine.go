@@ -25,14 +25,18 @@ type Notifier interface {
 }
 
 type Engine struct {
-	pinger    Pinger
-	targets   *repository.TargetRepository
-	results   *repository.ResultRepository
-	events    *repository.EventRepository
-	settings  SettingsProvider
-	notifier  Notifier
-	emitter   Emitter
-	logger    *slog.Logger
+	pinger       Pinger
+	httpProber   *HTTPProber
+	tcpProber    *TCPProber
+	targets      *repository.TargetRepository
+	results      *repository.ResultRepository
+	events       *repository.EventRepository
+	maintenance  *repository.MaintenanceRepository
+	incidents    *repository.IncidentRepository
+	settings     SettingsProvider
+	notifier     Notifier
+	emitter      Emitter
+	logger       *slog.Logger
 }
 
 func NewEngine(
@@ -49,15 +53,25 @@ func NewEngine(
 		logger = slog.Default()
 	}
 	return &Engine{
-		pinger:   pinger,
-		targets:  targets,
-		results:  results,
-		events:   events,
-		settings: settings,
-		notifier: notifier,
-		emitter:  emitter,
-		logger:   logger,
+		pinger:     pinger,
+		httpProber: NewHTTPProber(),
+		tcpProber:  NewTCPProber(),
+		targets:    targets,
+		results:    results,
+		events:     events,
+		settings:   settings,
+		notifier:   notifier,
+		emitter:    emitter,
+		logger:     logger,
 	}
+}
+
+func (e *Engine) SetMaintenance(repo *repository.MaintenanceRepository) {
+	e.maintenance = repo
+}
+
+func (e *Engine) SetIncidents(repo *repository.IncidentRepository) {
+	e.incidents = repo
 }
 
 func (e *Engine) Check(ctx context.Context, targetID string) error {
@@ -76,46 +90,73 @@ func (e *Engine) Check(ctx context.Context, targetID string) error {
 }
 
 func (e *Engine) TestPing(ctx context.Context, host string, timeoutSec, retries, retryDelaySec int) domain.PingTestResult {
-	host = domain.NormalizeHost(host)
+	return e.TestProbe(ctx, domain.ProbeTestInput{
+		ProbeType: string(domain.ProbeICMP),
+		Host:      host,
+		Timeout:   timeoutSec,
+	})
+}
+
+func (e *Engine) TestProbe(ctx context.Context, in domain.ProbeTestInput) domain.PingTestResult {
+	probe := domain.NormalizeProbeType(in.ProbeType)
+	timeoutSec := in.Timeout
+	if timeoutSec < 1 {
+		timeoutSec = 5
+	}
 	timeout := time.Duration(timeoutSec) * time.Second
-	if timeout <= 0 {
-		timeout = 5 * time.Second
+	target := domain.Target{
+		Host:         domain.NormalizeHost(in.Host),
+		ProbeType:    probe,
+		HTTPURL:      strings.TrimSpace(in.HTTPURL),
+		HTTPMethod:   domain.NormalizeHTTPMethod(in.HTTPMethod),
+		ExpectStatus: in.ExpectStatus,
+		TCPPort:      in.TCPPort,
+		Timeout:      timeoutSec,
 	}
-	if retries < 0 {
-		retries = 0
+	if probe == domain.ProbeHTTP && target.HTTPURL == "" {
+		target.HTTPURL = in.Host
 	}
-	result := domain.PingTestResult{Host: host, Attempts: 0}
-	var lastErr error
-	for attempt := 0; attempt <= retries; attempt++ {
-		if attempt > 0 && retryDelaySec > 0 {
-			select {
-			case <-ctx.Done():
-				result.Error = "ping cancelled"
-				return result
-			case <-time.After(time.Duration(retryDelaySec) * time.Second):
-			}
+	if probe == domain.ProbeHTTP {
+		if url, host, err := domain.NormalizeHTTPURL(target.HTTPURL); err == nil {
+			target.HTTPURL = url
+			target.Host = host
 		}
-		result.Attempts++
-		rtt, err := e.pinger.Ping(ctx, host, timeout)
-		if err == nil {
-			ms := rtt.Milliseconds()
-			result.Success = true
-			result.LatencyMs = &ms
-			return result
-		}
-		lastErr = err
 	}
-	if lastErr != nil {
-		result.Error = publicError(lastErr)
+	if target.ExpectStatus == 0 {
+		target.ExpectStatus = 200
 	}
+	result := domain.PingTestResult{Host: target.EndpointLabel(), ProbeType: probe, Attempts: 1}
+	rtt, err := e.probeOnce(ctx, target, timeout)
+	if err == nil {
+		ms := rtt.Milliseconds()
+		result.Success = true
+		result.LatencyMs = &ms
+		result.Detail = fmt.Sprintf("%s OK in %dms", probe.Label(), ms)
+		return result
+	}
+	result.Error = publicError(err)
 	return result
 }
 
 func (e *Engine) checkTarget(ctx context.Context, target domain.Target, settings domain.Settings) error {
+	now := time.Now().UTC()
+	maint := domain.MaintenanceEffect{}
+	if e.maintenance != nil {
+		effect, err := e.maintenance.EffectFor(ctx, target, now)
+		if err != nil {
+			e.logger.Warn("maintenance lookup failed", "error", err, "targetId", target.ID)
+		} else {
+			maint = effect
+		}
+	}
+	if maint.SuppressChecks {
+		e.logger.Debug("check skipped, maintenance window", "targetId", target.ID)
+		return nil
+	}
+
 	start := time.Now()
 	success, latency, pingErr, timedOut := e.pingWithRetry(ctx, target)
 	duration := time.Since(start).Milliseconds()
-	now := time.Now().UTC()
 	target.LastCheckedAt = &now
 	if success {
 		target.LastLatency = latency
@@ -181,16 +222,18 @@ func (e *Engine) checkTarget(ctx context.Context, target domain.Target, settings
 	}
 
 	if eval.Transition == "offline" {
-		e.handleOffline(ctx, target, settings)
+		e.handleOffline(ctx, target, settings, maint)
+	} else if !success && target.LastStatus == domain.StatusOffline && e.incidents != nil {
+		_ = e.incidents.TouchOpen(ctx, target.ID, target.ConsecutiveFailures)
 	}
 	if eval.Transition == "recovery" {
-		e.handleRecovery(ctx, target, settings, latency)
+		e.handleRecovery(ctx, target, settings, latency, maint)
 	}
 	if success && latency != nil && settings.HighLatencyThresholdMs > 0 && *latency > int64(settings.HighLatencyThresholdMs) {
-		e.handleHighLatency(ctx, target, settings, *latency)
+		e.handleHighLatency(ctx, target, settings, *latency, maint)
 	}
 	if timedOut && !success {
-		e.handleTimeout(ctx, target, settings, pingErr)
+		e.handleTimeout(ctx, target, settings, pingErr, maint)
 	}
 	return nil
 }
@@ -207,7 +250,7 @@ func (e *Engine) pingWithRetry(ctx context.Context, target domain.Target) (bool,
 			case <-time.After(time.Duration(target.RetryDelay) * time.Second):
 			}
 		}
-		rtt, err := e.pinger.Ping(ctx, target.Host, timeout)
+		rtt, err := e.probeOnce(ctx, target, timeout)
 		if err == nil {
 			ms := rtt.Milliseconds()
 			return true, &ms, nil, false
@@ -220,10 +263,30 @@ func (e *Engine) pingWithRetry(ctx context.Context, target domain.Target) (bool,
 	return false, nil, lastErr, timedOut
 }
 
-func (e *Engine) handleOffline(ctx context.Context, target domain.Target, settings domain.Settings) {
-	msg := fmt.Sprintf("%s (%s) is OFFLINE after %d consecutive failed checks", target.Name, target.Host, target.ConsecutiveFailures)
-	e.storeEvent(ctx, target, domain.EventTargetOffline, msg, map[string]any{"failures": target.ConsecutiveFailures})
-	if !settings.NotifyOnOffline {
+func (e *Engine) probeOnce(ctx context.Context, target domain.Target, timeout time.Duration) (time.Duration, error) {
+	switch domain.NormalizeProbeType(string(target.ProbeType)) {
+	case domain.ProbeHTTP:
+		return e.httpProber.Probe(ctx, target, timeout)
+	case domain.ProbeTCP:
+		return e.tcpProber.Probe(ctx, target, timeout)
+	default:
+		return e.pinger.Ping(ctx, target.Host, timeout)
+	}
+}
+
+func (e *Engine) handleOffline(ctx context.Context, target domain.Target, settings domain.Settings, maint domain.MaintenanceEffect) {
+	endpoint := target.EndpointLabel()
+	msg := fmt.Sprintf("%s (%s) is OFFLINE after %d consecutive failed checks [%s]", target.Name, endpoint, target.ConsecutiveFailures, target.ProbeType.Label())
+	e.storeEvent(ctx, target, domain.EventTargetOffline, msg, map[string]any{"failures": target.ConsecutiveFailures, "probe": target.ProbeType})
+	if e.incidents != nil {
+		inc, err := e.incidents.Open(ctx, target, msg, target.ConsecutiveFailures)
+		if err != nil {
+			e.logger.Warn("open incident", "error", err, "targetId", target.ID)
+		} else if e.emitter != nil {
+			e.emitter.Emit(domain.WailsIncidentUpdated, inc)
+		}
+	}
+	if !settings.NotifyOnOffline || maint.SuppressNotifications {
 		return
 	}
 	lastSuccess := "never"
@@ -236,7 +299,7 @@ func (e *Engine) handleOffline(ctx context.Context, target domain.Target, settin
 		Body:        fmt.Sprintf("%s is OFFLINE", target.Name),
 		TargetID:    target.ID,
 		TargetName:  target.Name,
-		Host:        target.Host,
+		Host:        endpoint,
 		Status:      "OFFLINE",
 		Failures:    target.ConsecutiveFailures,
 		LastSuccess: lastSuccess,
@@ -244,14 +307,21 @@ func (e *Engine) handleOffline(ctx context.Context, target domain.Target, settin
 	})
 }
 
-func (e *Engine) handleRecovery(ctx context.Context, target domain.Target, settings domain.Settings, latency *int64) {
+func (e *Engine) handleRecovery(ctx context.Context, target domain.Target, settings domain.Settings, latency *int64, maint domain.MaintenanceEffect) {
+	endpoint := target.EndpointLabel()
 	lat := "n/a"
 	if latency != nil {
 		lat = fmt.Sprintf("%dms", *latency)
 	}
-	msg := fmt.Sprintf("%s (%s) is back ONLINE (%s)", target.Name, target.Host, lat)
-	e.storeEvent(ctx, target, domain.EventTargetRecovery, msg, map[string]any{"latency": lat})
-	if !settings.NotifyOnRecovery {
+	msg := fmt.Sprintf("%s (%s) is back ONLINE (%s) [%s]", target.Name, endpoint, lat, target.ProbeType.Label())
+	e.storeEvent(ctx, target, domain.EventTargetRecovery, msg, map[string]any{"latency": lat, "probe": target.ProbeType})
+	if e.incidents != nil {
+		inc, err := e.incidents.Resolve(ctx, target.ID, msg)
+		if err == nil && e.emitter != nil {
+			e.emitter.Emit(domain.WailsIncidentUpdated, inc)
+		}
+	}
+	if !settings.NotifyOnRecovery || maint.SuppressNotifications {
 		return
 	}
 	e.notify(ctx, target, domain.Notification{
@@ -260,17 +330,18 @@ func (e *Engine) handleRecovery(ctx context.Context, target domain.Target, setti
 		Body:       fmt.Sprintf("%s is back ONLINE", target.Name),
 		TargetID:   target.ID,
 		TargetName: target.Name,
-		Host:       target.Host,
+		Host:       endpoint,
 		Status:     "ONLINE",
 		LatencyMs:  latency,
 		OccurredAt: time.Now().Format("15:04:05"),
 	})
 }
 
-func (e *Engine) handleHighLatency(ctx context.Context, target domain.Target, settings domain.Settings, latency int64) {
-	msg := fmt.Sprintf("%s (%s) high latency: %dms (threshold %dms)", target.Name, target.Host, latency, settings.HighLatencyThresholdMs)
+func (e *Engine) handleHighLatency(ctx context.Context, target domain.Target, settings domain.Settings, latency int64, maint domain.MaintenanceEffect) {
+	endpoint := target.EndpointLabel()
+	msg := fmt.Sprintf("%s (%s) high latency: %dms (threshold %dms)", target.Name, endpoint, latency, settings.HighLatencyThresholdMs)
 	e.storeEvent(ctx, target, domain.EventHighLatency, msg, map[string]any{"latency": latency})
-	if !settings.NotifyOnHighLatency {
+	if !settings.NotifyOnHighLatency || maint.SuppressNotifications {
 		return
 	}
 	ms := latency
@@ -280,29 +351,29 @@ func (e *Engine) handleHighLatency(ctx context.Context, target domain.Target, se
 		Body:       fmt.Sprintf("%s latency is %dms", target.Name, latency),
 		TargetID:   target.ID,
 		TargetName: target.Name,
-		Host:       target.Host,
+		Host:       endpoint,
 		Status:     "HIGH LATENCY",
 		LatencyMs:  &ms,
 		OccurredAt: time.Now().Format("15:04:05"),
 	})
 }
 
-func (e *Engine) handleTimeout(ctx context.Context, target domain.Target, settings domain.Settings, pingErr error) {
+func (e *Engine) handleTimeout(ctx context.Context, target domain.Target, settings domain.Settings, pingErr error, maint domain.MaintenanceEffect) {
 	msg := publicError(pingErr)
 	if msg == "" {
-		msg = fmt.Sprintf("Unable to ping %s: timeout after %d seconds", target.Host, target.Timeout)
+		msg = fmt.Sprintf("Unable to reach %s: timeout after %d seconds", target.EndpointLabel(), target.Timeout)
 	}
 	e.storeEvent(ctx, target, domain.EventPingTimeout, msg, nil)
-	if !settings.NotifyOnTimeout {
+	if !settings.NotifyOnTimeout || maint.SuppressNotifications {
 		return
 	}
 	e.notify(ctx, target, domain.Notification{
 		Kind:       domain.KindTimeout,
 		Title:      "PingPulse",
-		Body:       fmt.Sprintf("%s ping timed out", target.Name),
+		Body:       fmt.Sprintf("%s probe timed out", target.Name),
 		TargetID:   target.ID,
 		TargetName: target.Name,
-		Host:       target.Host,
+		Host:       target.EndpointLabel(),
 		Status:     "TIMEOUT",
 		OccurredAt: time.Now().Format("15:04:05"),
 	})

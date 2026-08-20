@@ -14,6 +14,8 @@ import { useAppStore } from "@/stores/app";
 import type { TargetDetails } from "@/types";
 import { formatDateTime, formatLatency, formatPercent, formatTime } from "@/lib/format";
 import { formatMuteRemaining, isMuted } from "@/lib/mute";
+import { endpointLabel, formatDuration, probeLabel } from "@/lib/probe";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { wailsError } from "@/lib/utils";
 
@@ -67,9 +69,12 @@ export function TargetDetailsPage() {
             ← Targets
           </button>
           <h1 className="mt-1 text-2xl font-semibold">{t.name}</h1>
-          <p className="font-mono text-sm text-muted-foreground">{t.host}</p>
-          <div className="mt-2">
+          <p className="font-mono text-sm text-muted-foreground">{endpointLabel(t)}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             <GroupBadge name={t.groupName} color={t.groupColor} />
+            <Badge variant="outline">{probeLabel(t.probeType)}</Badge>
+            {data.inMaintenance ? <Badge className="bg-amber-500/20 text-amber-300 hover:bg-amber-500/20">Maintenance</Badge> : null}
+            {data.openIncident ? <Badge className="bg-rose-500/20 text-rose-300 hover:bg-rose-500/20">Open incident</Badge> : null}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -80,12 +85,50 @@ export function TargetDetailsPage() {
           <StatusBadge status={t.lastStatus} />
         </div>
       </div>
+      {data.openIncident || data.inMaintenance ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          {data.openIncident ? (
+            <Card className="border-rose-500/30">
+              <CardHeader>
+                <CardTitle>Open incident</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <p>{data.openIncident.summary || "Target is currently offline."}</p>
+                <Row label="Started" value={formatDateTime(data.openIncident.startedAt)} />
+                <Row label="Duration" value={formatDuration(data.openIncident.durationSeconds)} />
+                <Row label="Failures" value={String(data.openIncident.failureCount)} />
+                <Button variant="outline" size="sm" onClick={() => navigate("/incidents")}>
+                  View incidents
+                </Button>
+              </CardContent>
+            </Card>
+          ) : null}
+          {data.inMaintenance && data.maintenanceWindow ? (
+            <Card className="border-amber-500/30">
+              <CardHeader>
+                <CardTitle>Active maintenance</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <p className="font-medium">{data.maintenanceWindow.name}</p>
+                {data.maintenanceWindow.reason ? <p className="text-muted-foreground">{data.maintenanceWindow.reason}</p> : null}
+                <Row label="Until" value={formatDateTime(data.maintenanceWindow.endsAt)} />
+                <Button variant="outline" size="sm" onClick={() => navigate("/maintenance")}>
+                  Manage windows
+                </Button>
+              </CardContent>
+            </Card>
+          ) : null}
+        </div>
+      ) : null}
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader>
             <CardTitle>Target information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
+            <Row label="Probe" value={probeLabel(t.probeType)} />
+            <Row label="Endpoint" value={endpointLabel(t)} />
+            {(t.probeType || "icmp") === "http" ? <Row label="Expect status" value={String(t.expectStatus || 200)} /> : null}
             <Row label="Interval" value={`${t.interval}s`} />
             <Row label="Timeout" value={`${t.timeout}s`} />
             <Row label="Retry" value={`${t.retryCount} × ${t.retryDelay}s`} />

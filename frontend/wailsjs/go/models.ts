@@ -33,6 +33,34 @@ export namespace domain {
 		    return a;
 		}
 	}
+	export class CreateMaintenanceInput {
+	    name: string;
+	    targetId: string;
+	    groupId: string;
+	    startsAt: string;
+	    endsAt: string;
+	    reason: string;
+	    suppressChecks?: boolean;
+	    suppressNotifications?: boolean;
+	    enabled?: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new CreateMaintenanceInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.targetId = source["targetId"];
+	        this.groupId = source["groupId"];
+	        this.startsAt = source["startsAt"];
+	        this.endsAt = source["endsAt"];
+	        this.reason = source["reason"];
+	        this.suppressChecks = source["suppressChecks"];
+	        this.suppressNotifications = source["suppressNotifications"];
+	        this.enabled = source["enabled"];
+	    }
+	}
 	export class CreateTargetInput {
 	    name: string;
 	    host: string;
@@ -42,6 +70,11 @@ export namespace domain {
 	    retryCount?: number;
 	    retryDelay?: number;
 	    groupId?: string;
+	    probeType?: string;
+	    httpUrl?: string;
+	    httpMethod?: string;
+	    expectStatus?: number;
+	    tcpPort?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new CreateTargetInput(source);
@@ -57,6 +90,11 @@ export namespace domain {
 	        this.retryCount = source["retryCount"];
 	        this.retryDelay = source["retryDelay"];
 	        this.groupId = source["groupId"];
+	        this.probeType = source["probeType"];
+	        this.httpUrl = source["httpUrl"];
+	        this.httpMethod = source["httpMethod"];
+	        this.expectStatus = source["expectStatus"];
+	        this.tcpPort = source["tcpPort"];
 	    }
 	}
 	export class DashboardStats {
@@ -74,6 +112,8 @@ export namespace domain {
 	    paused: boolean;
 	    uptimePercent: number;
 	    mutedUntil: string;
+	    openIncidents: number;
+	    activeMaintenance: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new DashboardStats(source);
@@ -93,6 +133,8 @@ export namespace domain {
 	        this.paused = source["paused"];
 	        this.uptimePercent = source["uptimePercent"];
 	        this.mutedUntil = source["mutedUntil"];
+	        this.openIncidents = source["openIncidents"];
+	        this.activeMaintenance = source["activeMaintenance"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -293,6 +335,197 @@ export namespace domain {
 	        this.errors = source["errors"];
 	    }
 	}
+	export class Incident {
+	    id: string;
+	    targetId: string;
+	    targetName: string;
+	    host: string;
+	    probeType: string;
+	    status: string;
+	    // Go type: time
+	    startedAt: any;
+	    // Go type: time
+	    endedAt?: any;
+	    durationSeconds: number;
+	    failureCount: number;
+	    summary: string;
+	    // Go type: time
+	    createdAt: any;
+	    // Go type: time
+	    updatedAt: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new Incident(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.targetId = source["targetId"];
+	        this.targetName = source["targetName"];
+	        this.host = source["host"];
+	        this.probeType = source["probeType"];
+	        this.status = source["status"];
+	        this.startedAt = this.convertValues(source["startedAt"], null);
+	        this.endedAt = this.convertValues(source["endedAt"], null);
+	        this.durationSeconds = source["durationSeconds"];
+	        this.failureCount = source["failureCount"];
+	        this.summary = source["summary"];
+	        this.createdAt = this.convertValues(source["createdAt"], null);
+	        this.updatedAt = this.convertValues(source["updatedAt"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class IncidentFilter {
+	    targetId: string;
+	    status: string;
+	    from: string;
+	    to: string;
+	    search: string;
+	    limit: number;
+	    offset: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new IncidentFilter(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.targetId = source["targetId"];
+	        this.status = source["status"];
+	        this.from = source["from"];
+	        this.to = source["to"];
+	        this.search = source["search"];
+	        this.limit = source["limit"];
+	        this.offset = source["offset"];
+	    }
+	}
+	export class IncidentPage {
+	    items: Incident[];
+	    total: number;
+	    limit: number;
+	    offset: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new IncidentPage(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.items = this.convertValues(source["items"], Incident);
+	        this.total = source["total"];
+	        this.limit = source["limit"];
+	        this.offset = source["offset"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class IncidentTargetStat {
+	    targetId: string;
+	    targetName: string;
+	    host: string;
+	    incidents: number;
+	    open: number;
+	    downtimeSec: number;
+	    uptimePercent: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new IncidentTargetStat(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.targetId = source["targetId"];
+	        this.targetName = source["targetName"];
+	        this.host = source["host"];
+	        this.incidents = source["incidents"];
+	        this.open = source["open"];
+	        this.downtimeSec = source["downtimeSec"];
+	        this.uptimePercent = source["uptimePercent"];
+	    }
+	}
+	export class IncidentReport {
+	    from: string;
+	    to: string;
+	    totalIncidents: number;
+	    openIncidents: number;
+	    resolvedIncidents: number;
+	    totalDowntimeSec: number;
+	    averageMttrSec: number;
+	    longestOutageSec: number;
+	    byTarget: IncidentTargetStat[];
+	    recent: Incident[];
+	
+	    static createFrom(source: any = {}) {
+	        return new IncidentReport(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.from = source["from"];
+	        this.to = source["to"];
+	        this.totalIncidents = source["totalIncidents"];
+	        this.openIncidents = source["openIncidents"];
+	        this.resolvedIncidents = source["resolvedIncidents"];
+	        this.totalDowntimeSec = source["totalDowntimeSec"];
+	        this.averageMttrSec = source["averageMttrSec"];
+	        this.longestOutageSec = source["longestOutageSec"];
+	        this.byTarget = this.convertValues(source["byTarget"], IncidentTargetStat);
+	        this.recent = this.convertValues(source["recent"], Incident);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
 	export class LatencyPoint {
 	    // Go type: time
 	    timestamp: any;
@@ -308,6 +541,68 @@ export namespace domain {
 	        this.timestamp = this.convertValues(source["timestamp"], null);
 	        this.latency = source["latency"];
 	        this.success = source["success"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class MaintenanceWindow {
+	    id: string;
+	    name: string;
+	    targetId: string;
+	    groupId: string;
+	    // Go type: time
+	    startsAt: any;
+	    // Go type: time
+	    endsAt: any;
+	    reason: string;
+	    suppressChecks: boolean;
+	    suppressNotifications: boolean;
+	    enabled: boolean;
+	    // Go type: time
+	    createdAt: any;
+	    // Go type: time
+	    updatedAt: any;
+	    targetName: string;
+	    groupName: string;
+	    active: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new MaintenanceWindow(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.targetId = source["targetId"];
+	        this.groupId = source["groupId"];
+	        this.startsAt = this.convertValues(source["startsAt"], null);
+	        this.endsAt = this.convertValues(source["endsAt"], null);
+	        this.reason = source["reason"];
+	        this.suppressChecks = source["suppressChecks"];
+	        this.suppressNotifications = source["suppressNotifications"];
+	        this.enabled = source["enabled"];
+	        this.createdAt = this.convertValues(source["createdAt"], null);
+	        this.updatedAt = this.convertValues(source["updatedAt"], null);
+	        this.targetName = source["targetName"];
+	        this.groupName = source["groupName"];
+	        this.active = source["active"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -398,10 +693,12 @@ export namespace domain {
 	
 	export class PingTestResult {
 	    host: string;
+	    probeType: string;
 	    success: boolean;
 	    latencyMs?: number;
 	    error: string;
 	    attempts: number;
+	    detail: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new PingTestResult(source);
@@ -410,10 +707,36 @@ export namespace domain {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.host = source["host"];
+	        this.probeType = source["probeType"];
 	        this.success = source["success"];
 	        this.latencyMs = source["latencyMs"];
 	        this.error = source["error"];
 	        this.attempts = source["attempts"];
+	        this.detail = source["detail"];
+	    }
+	}
+	export class ProbeTestInput {
+	    probeType: string;
+	    host: string;
+	    timeout: number;
+	    httpUrl: string;
+	    httpMethod: string;
+	    expectStatus: number;
+	    tcpPort: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProbeTestInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.probeType = source["probeType"];
+	        this.host = source["host"];
+	        this.timeout = source["timeout"];
+	        this.httpUrl = source["httpUrl"];
+	        this.httpMethod = source["httpMethod"];
+	        this.expectStatus = source["expectStatus"];
+	        this.tcpPort = source["tcpPort"];
 	    }
 	}
 	export class Settings {
@@ -497,6 +820,11 @@ export namespace domain {
 	    groupName: string;
 	    groupColor: string;
 	    mutedUntil: string;
+	    probeType: string;
+	    httpUrl: string;
+	    httpMethod: string;
+	    expectStatus: number;
+	    tcpPort: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new Target(source);
@@ -525,6 +853,11 @@ export namespace domain {
 	        this.groupName = source["groupName"];
 	        this.groupColor = source["groupColor"];
 	        this.mutedUntil = source["mutedUntil"];
+	        this.probeType = source["probeType"];
+	        this.httpUrl = source["httpUrl"];
+	        this.httpMethod = source["httpMethod"];
+	        this.expectStatus = source["expectStatus"];
+	        this.tcpPort = source["tcpPort"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -578,6 +911,9 @@ export namespace domain {
 	    recentResults: PingResult[];
 	    latencySeries: LatencyPoint[];
 	    availability: AvailabilityPoint[];
+	    openIncident?: Incident;
+	    inMaintenance: boolean;
+	    maintenanceWindow?: MaintenanceWindow;
 	
 	    static createFrom(source: any = {}) {
 	        return new TargetDetails(source);
@@ -591,6 +927,9 @@ export namespace domain {
 	        this.recentResults = this.convertValues(source["recentResults"], PingResult);
 	        this.latencySeries = this.convertValues(source["latencySeries"], LatencyPoint);
 	        this.availability = this.convertValues(source["availability"], AvailabilityPoint);
+	        this.openIncident = this.convertValues(source["openIncident"], Incident);
+	        this.inMaintenance = source["inMaintenance"];
+	        this.maintenanceWindow = this.convertValues(source["maintenanceWindow"], MaintenanceWindow);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -652,6 +991,34 @@ export namespace domain {
 		}
 	}
 	
+	export class UpdateMaintenanceInput {
+	    name?: string;
+	    targetId?: string;
+	    groupId?: string;
+	    startsAt?: string;
+	    endsAt?: string;
+	    reason?: string;
+	    suppressChecks?: boolean;
+	    suppressNotifications?: boolean;
+	    enabled?: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new UpdateMaintenanceInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.targetId = source["targetId"];
+	        this.groupId = source["groupId"];
+	        this.startsAt = source["startsAt"];
+	        this.endsAt = source["endsAt"];
+	        this.reason = source["reason"];
+	        this.suppressChecks = source["suppressChecks"];
+	        this.suppressNotifications = source["suppressNotifications"];
+	        this.enabled = source["enabled"];
+	    }
+	}
 	export class UpdateTargetInput {
 	    name?: string;
 	    host?: string;
@@ -661,6 +1028,11 @@ export namespace domain {
 	    retryCount?: number;
 	    retryDelay?: number;
 	    groupId?: string;
+	    probeType?: string;
+	    httpUrl?: string;
+	    httpMethod?: string;
+	    expectStatus?: number;
+	    tcpPort?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new UpdateTargetInput(source);
@@ -676,6 +1048,11 @@ export namespace domain {
 	        this.retryCount = source["retryCount"];
 	        this.retryDelay = source["retryDelay"];
 	        this.groupId = source["groupId"];
+	        this.probeType = source["probeType"];
+	        this.httpUrl = source["httpUrl"];
+	        this.httpMethod = source["httpMethod"];
+	        this.expectStatus = source["expectStatus"];
+	        this.tcpPort = source["tcpPort"];
 	    }
 	}
 

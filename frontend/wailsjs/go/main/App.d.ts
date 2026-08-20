@@ -7,9 +7,13 @@ export function CheckForUpdate():Promise<updater.Info>;
 
 export function CreateGroup(arg1:string,arg2:string):Promise<domain.TargetGroup>;
 
+export function CreateMaintenanceWindow(arg1:domain.CreateMaintenanceInput):Promise<domain.MaintenanceWindow>;
+
 export function CreateTarget(arg1:domain.CreateTargetInput):Promise<domain.Target>;
 
 export function DeleteGroup(arg1:string):Promise<void>;
+
+export function DeleteMaintenanceWindow(arg1:string):Promise<void>;
 
 export function DeleteTarget(arg1:string):Promise<void>;
 
@@ -20,6 +24,10 @@ export function GetAppVersion():Promise<string>;
 export function GetDashboardStats():Promise<domain.DashboardStats>;
 
 export function GetEvents(arg1:domain.EventFilter):Promise<Array<domain.Event>>;
+
+export function GetIncidentReport(arg1:string,arg2:string):Promise<domain.IncidentReport>;
+
+export function GetIncidents(arg1:domain.IncidentFilter):Promise<domain.IncidentPage>;
 
 export function GetMonitoringStatus():Promise<domain.MonitoringStatus>;
 
@@ -40,6 +48,8 @@ export function ImportTargets(arg1:string,arg2:string):Promise<domain.ImportResu
 export function InstallUpdate():Promise<void>;
 
 export function ListGroups():Promise<Array<domain.TargetGroup>>;
+
+export function ListMaintenanceWindows():Promise<Array<domain.MaintenanceWindow>>;
 
 export function MinimizeToTray():Promise<void>;
 
@@ -63,7 +73,11 @@ export function TestNotification(arg1:string):Promise<void>;
 
 export function TestPing(arg1:string,arg2:number):Promise<domain.PingTestResult>;
 
+export function TestProbe(arg1:domain.ProbeTestInput):Promise<domain.PingTestResult>;
+
 export function UpdateGroup(arg1:string,arg2:string,arg3:string):Promise<domain.TargetGroup>;
+
+export function UpdateMaintenanceWindow(arg1:string,arg2:domain.UpdateMaintenanceInput):Promise<domain.MaintenanceWindow>;
 
 export function UpdateNotificationConfig(arg1:domain.NotificationConfig):Promise<domain.NotificationConfig>;
 

@@ -5,6 +5,8 @@ export const copy = {
     dashboard: "Dashboard",
     targets: "Targets",
     history: "History",
+    incidents: "Incidents",
+    maintenance: "Maintenance",
     notifications: "Notifications",
     settings: "Settings",
   },

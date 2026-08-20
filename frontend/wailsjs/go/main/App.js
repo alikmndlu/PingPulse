@@ -10,12 +10,20 @@ export function CreateGroup(arg1, arg2) {
   return window['go']['main']['App']['CreateGroup'](arg1, arg2);
 }
 
+export function CreateMaintenanceWindow(arg1) {
+  return window['go']['main']['App']['CreateMaintenanceWindow'](arg1);
+}
+
 export function CreateTarget(arg1) {
   return window['go']['main']['App']['CreateTarget'](arg1);
 }
 
 export function DeleteGroup(arg1) {
   return window['go']['main']['App']['DeleteGroup'](arg1);
+}
+
+export function DeleteMaintenanceWindow(arg1) {
+  return window['go']['main']['App']['DeleteMaintenanceWindow'](arg1);
 }
 
 export function DeleteTarget(arg1) {
@@ -36,6 +44,14 @@ export function GetDashboardStats() {
 
 export function GetEvents(arg1) {
   return window['go']['main']['App']['GetEvents'](arg1);
+}
+
+export function GetIncidentReport(arg1, arg2) {
+  return window['go']['main']['App']['GetIncidentReport'](arg1, arg2);
+}
+
+export function GetIncidents(arg1) {
+  return window['go']['main']['App']['GetIncidents'](arg1);
 }
 
 export function GetMonitoringStatus() {
@@ -76,6 +92,10 @@ export function InstallUpdate() {
 
 export function ListGroups() {
   return window['go']['main']['App']['ListGroups']();
+}
+
+export function ListMaintenanceWindows() {
+  return window['go']['main']['App']['ListMaintenanceWindows']();
 }
 
 export function MinimizeToTray() {
@@ -122,8 +142,16 @@ export function TestPing(arg1, arg2) {
   return window['go']['main']['App']['TestPing'](arg1, arg2);
 }
 
+export function TestProbe(arg1) {
+  return window['go']['main']['App']['TestProbe'](arg1);
+}
+
 export function UpdateGroup(arg1, arg2, arg3) {
   return window['go']['main']['App']['UpdateGroup'](arg1, arg2, arg3);
+}
+
+export function UpdateMaintenanceWindow(arg1, arg2) {
+  return window['go']['main']['App']['UpdateMaintenanceWindow'](arg1, arg2);
 }
 
 export function UpdateNotificationConfig(arg1) {

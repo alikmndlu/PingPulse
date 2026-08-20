@@ -35,6 +35,8 @@ type App struct {
 	settings  *repository.SettingsRepository
 	notifRepo *repository.NotificationRepository
 	groups    *repository.GroupRepository
+	maintenance *repository.MaintenanceRepository
+	incidents *repository.IncidentRepository
 	engine    *monitor.Engine
 	scheduler *scheduler.Scheduler
 	hub       *notification.Hub
@@ -74,6 +76,8 @@ func (a *App) startup(ctx context.Context) {
 	a.settings = repository.NewSettingsRepository(db)
 	a.notifRepo = repository.NewNotificationRepository(db)
 	a.groups = repository.NewGroupRepository(db)
+	a.maintenance = repository.NewMaintenanceRepository(db)
+	a.incidents = repository.NewIncidentRepository(db)
 
 	a.hub = notification.NewHub(a.settings, a.notifRepo, wailsEmitter{app: a}, a.logger.Logger,
 		notification.NewSMSProvider(a.notifRepo),
@@ -82,6 +86,8 @@ func (a *App) startup(ctx context.Context) {
 		notification.NewDesktopProvider(),
 	)
 	a.engine = monitor.NewEngine(monitor.NewICMPPinger(), a.targets, a.results, a.events, a.settings, a.hub, wailsEmitter{app: a}, a.logger.Logger)
+	a.engine.SetMaintenance(a.maintenance)
+	a.engine.SetIncidents(a.incidents)
 	a.scheduler = scheduler.New(a.targets, a.engine, wailsEmitter{app: a}, a.logger.Logger)
 
 	settings, err := a.settings.Get(ctx)
@@ -179,14 +185,25 @@ func (a *App) CreateTarget(input domain.CreateTargetInput) (domain.Target, error
 		return domain.Target{}, publicErr(err)
 	}
 	t := domain.Target{
-		Name:       input.Name,
-		Host:       input.Host,
-		Enabled:    *input.Enabled,
-		Interval:   *input.Interval,
-		Timeout:    *input.Timeout,
-		RetryCount: *input.RetryCount,
-		RetryDelay: *input.RetryDelay,
-		LastStatus: domain.StatusUnknown,
+		Name:         input.Name,
+		Host:         input.Host,
+		Enabled:      *input.Enabled,
+		Interval:     *input.Interval,
+		Timeout:      *input.Timeout,
+		RetryCount:   *input.RetryCount,
+		RetryDelay:   *input.RetryDelay,
+		LastStatus:   domain.StatusUnknown,
+		ProbeType:    domain.NormalizeProbeType(input.ProbeType),
+		HTTPURL:      input.HTTPURL,
+		HTTPMethod:   domain.NormalizeHTTPMethod(input.HTTPMethod),
+		ExpectStatus: 200,
+		TCPPort:      0,
+	}
+	if input.ExpectStatus != nil {
+		t.ExpectStatus = *input.ExpectStatus
+	}
+	if input.TCPPort != nil {
+		t.TCPPort = *input.TCPPort
 	}
 	if !t.Enabled {
 		t.LastStatus = domain.StatusDisabled
@@ -218,11 +235,46 @@ func (a *App) UpdateTarget(id string, input domain.UpdateTargetInput) (domain.Ta
 		t.Name = strings.TrimSpace(*input.Name)
 	}
 	if input.Host != nil {
-		host := domain.NormalizeHost(*input.Host)
-		if err := domain.ValidateHost(host); err != nil {
+		t.Host = strings.TrimSpace(*input.Host)
+	}
+	if input.ProbeType != nil {
+		t.ProbeType = domain.NormalizeProbeType(*input.ProbeType)
+	}
+	if input.HTTPURL != nil {
+		t.HTTPURL = strings.TrimSpace(*input.HTTPURL)
+	}
+	if input.HTTPMethod != nil {
+		t.HTTPMethod = domain.NormalizeHTTPMethod(*input.HTTPMethod)
+	}
+	if input.ExpectStatus != nil {
+		if err := domain.ValidatePositiveRange("expectStatus", *input.ExpectStatus, 100, 599); err != nil {
 			return domain.Target{}, publicErr(err)
 		}
-		t.Host = host
+		t.ExpectStatus = *input.ExpectStatus
+	}
+	if input.TCPPort != nil {
+		t.TCPPort = *input.TCPPort
+	}
+	// Re-normalize probe-specific fields after updates.
+	probeIn := domain.CreateTargetInput{
+		Name: t.Name, Host: t.Host, ProbeType: string(t.ProbeType),
+		HTTPURL: t.HTTPURL, HTTPMethod: t.HTTPMethod, ExpectStatus: &t.ExpectStatus, TCPPort: &t.TCPPort,
+		Enabled: &t.Enabled, Interval: &t.Interval, Timeout: &t.Timeout, RetryCount: &t.RetryCount, RetryDelay: &t.RetryDelay,
+	}
+	s, _ := a.settings.Get(ctx)
+	probeIn = domain.ApplyTargetDefaults(probeIn, s)
+	if err := domain.ValidateCreateTarget(probeIn); err != nil {
+		return domain.Target{}, publicErr(err)
+	}
+	t.Host = probeIn.Host
+	t.ProbeType = domain.NormalizeProbeType(probeIn.ProbeType)
+	t.HTTPURL = probeIn.HTTPURL
+	t.HTTPMethod = probeIn.HTTPMethod
+	if probeIn.ExpectStatus != nil {
+		t.ExpectStatus = *probeIn.ExpectStatus
+	}
+	if probeIn.TCPPort != nil {
+		t.TCPPort = *probeIn.TCPPort
 	}
 	if input.Enabled != nil {
 		t.Enabled = *input.Enabled
@@ -374,17 +426,20 @@ func (a *App) DeleteGroup(id string) error {
 }
 
 func (a *App) TestPing(host string, timeout int) (domain.PingTestResult, error) {
-	host = domain.NormalizeHost(host)
-	if err := domain.ValidateHost(host); err != nil {
-		return domain.PingTestResult{}, publicErr(err)
+	return a.TestProbe(domain.ProbeTestInput{ProbeType: string(domain.ProbeICMP), Host: host, Timeout: timeout})
+}
+
+func (a *App) TestProbe(input domain.ProbeTestInput) (domain.PingTestResult, error) {
+	if a.engine == nil {
+		return domain.PingTestResult{}, fmt.Errorf("application is still starting")
 	}
+	timeout := input.Timeout
 	if timeout < 1 {
 		timeout = 5
 	}
-	ctx, cancel := context.WithTimeout(a.requestContext(), time.Duration(timeout+2)*time.Second)
+	ctx, cancel := context.WithTimeout(a.requestContext(), time.Duration(timeout+5)*time.Second)
 	defer cancel()
-	result := a.engine.TestPing(ctx, host, timeout, 0, 0)
-	return result, nil
+	return a.engine.TestProbe(ctx, input), nil
 }
 
 func (a *App) GetTargetHistory(filter domain.HistoryFilter) (domain.HistoryPage, error) {
@@ -425,6 +480,16 @@ func (a *App) GetDashboardStats() (domain.DashboardStats, error) {
 			stats.MutedUntil = s.MutedUntil
 		}
 	}
+	if a.incidents != nil {
+		if n, err := a.incidents.OpenCount(ctx); err == nil {
+			stats.OpenIncidents = n
+		}
+	}
+	if a.maintenance != nil {
+		if n, err := a.maintenance.ActiveCount(ctx); err == nil {
+			stats.ActiveMaintenance = n
+		}
+	}
 	return stats, nil
 }
 
@@ -452,10 +517,22 @@ func (a *App) GetTargetDetails(id string) (domain.TargetDetails, error) {
 	if results == nil {
 		results = []domain.PingResult{}
 	}
-	return domain.TargetDetails{
+	details := domain.TargetDetails{
 		Target: t, Metrics: metrics, RecentEvents: events, RecentResults: results,
 		LatencySeries: series, Availability: avail,
-	}, nil
+	}
+	if a.incidents != nil {
+		if open, err := a.incidents.GetOpen(ctx, id); err == nil {
+			details.OpenIncident = &open
+		}
+	}
+	if a.maintenance != nil {
+		if effect, err := a.maintenance.EffectFor(ctx, t, time.Now().UTC()); err == nil && effect.Active {
+			details.InMaintenance = true
+			details.MaintenanceWindow = effect.Window
+		}
+	}
+	return details, nil
 }
 
 func (a *App) GetSettings() (domain.Settings, error) {
@@ -555,7 +632,15 @@ func (a *App) ImportTargets(payload, format string) (domain.ImportResult, error)
 			continue
 		}
 		in.GroupID = gid
-		existing, err := a.targets.GetByHost(ctx, in.Host)
+		probe := domain.NormalizeProbeType(in.ProbeType)
+		tcpPort, expect := 0, 200
+		if in.TCPPort != nil {
+			tcpPort = *in.TCPPort
+		}
+		if in.ExpectStatus != nil {
+			expect = *in.ExpectStatus
+		}
+		existing, err := a.targets.FindByIdentity(ctx, probe, in.Host, tcpPort, in.HTTPURL)
 		if err == nil {
 			existing.Name = in.Name
 			existing.Enabled = *in.Enabled
@@ -564,6 +649,11 @@ func (a *App) ImportTargets(payload, format string) (domain.ImportResult, error)
 			existing.RetryCount = *in.RetryCount
 			existing.RetryDelay = *in.RetryDelay
 			existing.GroupID = gid
+			existing.ProbeType = probe
+			existing.HTTPURL = in.HTTPURL
+			existing.HTTPMethod = domain.NormalizeHTTPMethod(in.HTTPMethod)
+			existing.ExpectStatus = expect
+			existing.TCPPort = tcpPort
 			if !existing.Enabled {
 				existing.LastStatus = domain.StatusDisabled
 			}
@@ -636,6 +726,200 @@ func (a *App) MinimizeToTray() error {
 		runtime.WindowHide(a.ctx)
 	}
 	return nil
+}
+
+func (a *App) ListMaintenanceWindows() ([]domain.MaintenanceWindow, error) {
+	if a.maintenance == nil {
+		return []domain.MaintenanceWindow{}, fmt.Errorf("application is still starting")
+	}
+	items, err := a.maintenance.List(a.requestContext())
+	if items == nil {
+		items = []domain.MaintenanceWindow{}
+	}
+	return items, publicErr(err)
+}
+
+func (a *App) CreateMaintenanceWindow(input domain.CreateMaintenanceInput) (domain.MaintenanceWindow, error) {
+	if a.maintenance == nil {
+		return domain.MaintenanceWindow{}, fmt.Errorf("application is still starting")
+	}
+	ctx := a.requestContext()
+	if err := domain.ValidateMaintenanceName(input.Name); err != nil {
+		return domain.MaintenanceWindow{}, publicErr(err)
+	}
+	starts, err := repository.ParseTimeInput(input.StartsAt)
+	if err != nil {
+		return domain.MaintenanceWindow{}, publicErr(domain.NewValidationError("startsAt", "invalid start time"))
+	}
+	ends, err := repository.ParseTimeInput(input.EndsAt)
+	if err != nil {
+		return domain.MaintenanceWindow{}, publicErr(domain.NewValidationError("endsAt", "invalid end time"))
+	}
+	if !ends.After(starts) {
+		return domain.MaintenanceWindow{}, publicErr(domain.NewValidationError("endsAt", "end time must be after start time"))
+	}
+	suppressChecks := true
+	if input.SuppressChecks != nil {
+		suppressChecks = *input.SuppressChecks
+	}
+	suppressNotif := true
+	if input.SuppressNotifications != nil {
+		suppressNotif = *input.SuppressNotifications
+	}
+	enabled := true
+	if input.Enabled != nil {
+		enabled = *input.Enabled
+	}
+	targetID := strings.TrimSpace(input.TargetID)
+	groupID := strings.TrimSpace(input.GroupID)
+	if targetID != "" && groupID != "" {
+		return domain.MaintenanceWindow{}, publicErr(domain.NewValidationError("scope", "choose either a target or a group, not both"))
+	}
+	if targetID != "" {
+		if _, err := a.targets.Get(ctx, targetID); err != nil {
+			return domain.MaintenanceWindow{}, publicErr(domain.NewValidationError("targetId", "target was not found"))
+		}
+	}
+	if groupID != "" {
+		if _, err := a.groups.Get(ctx, groupID); err != nil {
+			return domain.MaintenanceWindow{}, publicErr(domain.NewValidationError("groupId", "group was not found"))
+		}
+	}
+	created, err := a.maintenance.Create(ctx, domain.MaintenanceWindow{
+		Name: strings.TrimSpace(input.Name), TargetID: targetID, GroupID: groupID,
+		StartsAt: starts, EndsAt: ends, Reason: strings.TrimSpace(input.Reason),
+		SuppressChecks: suppressChecks, SuppressNotifications: suppressNotif, Enabled: enabled,
+	})
+	if err != nil {
+		return domain.MaintenanceWindow{}, publicErr(err)
+	}
+	a.emit(domain.WailsMaintenanceChanged, created)
+	return created, nil
+}
+
+func (a *App) UpdateMaintenanceWindow(id string, input domain.UpdateMaintenanceInput) (domain.MaintenanceWindow, error) {
+	if a.maintenance == nil {
+		return domain.MaintenanceWindow{}, fmt.Errorf("application is still starting")
+	}
+	ctx := a.requestContext()
+	w, err := a.maintenance.Get(ctx, id)
+	if err != nil {
+		return domain.MaintenanceWindow{}, publicErr(err)
+	}
+	if input.Name != nil {
+		if err := domain.ValidateMaintenanceName(*input.Name); err != nil {
+			return domain.MaintenanceWindow{}, publicErr(err)
+		}
+		w.Name = strings.TrimSpace(*input.Name)
+	}
+	if input.StartsAt != nil {
+		t, err := repository.ParseTimeInput(*input.StartsAt)
+		if err != nil {
+			return domain.MaintenanceWindow{}, publicErr(domain.NewValidationError("startsAt", "invalid start time"))
+		}
+		w.StartsAt = t
+	}
+	if input.EndsAt != nil {
+		t, err := repository.ParseTimeInput(*input.EndsAt)
+		if err != nil {
+			return domain.MaintenanceWindow{}, publicErr(domain.NewValidationError("endsAt", "invalid end time"))
+		}
+		w.EndsAt = t
+	}
+	if !w.EndsAt.After(w.StartsAt) {
+		return domain.MaintenanceWindow{}, publicErr(domain.NewValidationError("endsAt", "end time must be after start time"))
+	}
+	if input.Reason != nil {
+		w.Reason = strings.TrimSpace(*input.Reason)
+	}
+	if input.SuppressChecks != nil {
+		w.SuppressChecks = *input.SuppressChecks
+	}
+	if input.SuppressNotifications != nil {
+		w.SuppressNotifications = *input.SuppressNotifications
+	}
+	if input.Enabled != nil {
+		w.Enabled = *input.Enabled
+	}
+	if input.TargetID != nil {
+		w.TargetID = strings.TrimSpace(*input.TargetID)
+		if w.TargetID != "" {
+			if _, err := a.targets.Get(ctx, w.TargetID); err != nil {
+				return domain.MaintenanceWindow{}, publicErr(domain.NewValidationError("targetId", "target was not found"))
+			}
+			w.GroupID = ""
+		}
+	}
+	if input.GroupID != nil {
+		w.GroupID = strings.TrimSpace(*input.GroupID)
+		if w.GroupID != "" {
+			if _, err := a.groups.Get(ctx, w.GroupID); err != nil {
+				return domain.MaintenanceWindow{}, publicErr(domain.NewValidationError("groupId", "group was not found"))
+			}
+			w.TargetID = ""
+		}
+	}
+	updated, err := a.maintenance.Update(ctx, w)
+	if err != nil {
+		return domain.MaintenanceWindow{}, publicErr(err)
+	}
+	a.emit(domain.WailsMaintenanceChanged, updated)
+	return updated, nil
+}
+
+func (a *App) DeleteMaintenanceWindow(id string) error {
+	if a.maintenance == nil {
+		return fmt.Errorf("application is still starting")
+	}
+	if err := a.maintenance.Delete(a.requestContext(), id); err != nil {
+		return publicErr(err)
+	}
+	a.emit(domain.WailsMaintenanceChanged, id)
+	return nil
+}
+
+func (a *App) GetIncidents(filter domain.IncidentFilter) (domain.IncidentPage, error) {
+	if a.incidents == nil {
+		return domain.IncidentPage{Items: []domain.Incident{}}, fmt.Errorf("application is still starting")
+	}
+	page, err := a.incidents.List(a.requestContext(), filter)
+	if page.Items == nil {
+		page.Items = []domain.Incident{}
+	}
+	return page, publicErr(err)
+}
+
+func (a *App) GetIncidentReport(from, to string) (domain.IncidentReport, error) {
+	if a.incidents == nil {
+		return domain.IncidentReport{}, fmt.Errorf("application is still starting")
+	}
+	end := time.Now().UTC()
+	start := end.Add(-30 * 24 * time.Hour)
+	if strings.TrimSpace(from) != "" {
+		t, err := repository.ParseTimeInput(from)
+		if err != nil {
+			return domain.IncidentReport{}, publicErr(domain.NewValidationError("from", "invalid from date"))
+		}
+		start = t
+	}
+	if strings.TrimSpace(to) != "" {
+		t, err := repository.ParseTimeInput(to)
+		if err != nil {
+			return domain.IncidentReport{}, publicErr(domain.NewValidationError("to", "invalid to date"))
+		}
+		end = t
+	}
+	if !end.After(start) {
+		return domain.IncidentReport{}, publicErr(domain.NewValidationError("to", "end must be after start"))
+	}
+	report, err := a.incidents.Report(a.requestContext(), start, end)
+	if report.ByTarget == nil {
+		report.ByTarget = []domain.IncidentTargetStat{}
+	}
+	if report.Recent == nil {
+		report.Recent = []domain.Incident{}
+	}
+	return report, publicErr(err)
 }
 
 func (a *App) QuitApp() {

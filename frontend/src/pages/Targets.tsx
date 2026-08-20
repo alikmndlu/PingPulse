@@ -17,6 +17,7 @@ import type { CreateTargetInput, Target, TargetGroup } from "@/types";
 import { formatLatency, formatRelative } from "@/lib/format";
 import { filterTargets, GROUP_ALL } from "@/lib/groups";
 import { isMuted } from "@/lib/mute";
+import { endpointLabel, probeLabel } from "@/lib/probe";
 import { toast } from "sonner";
 import { wailsError } from "@/lib/utils";
 
@@ -66,11 +67,20 @@ export function TargetsPage() {
     }
   }
 
-  async function testPing(t: Target) {
+  async function testProbe(t: Target) {
     try {
-      const res = await api.testPing(t.host, t.timeout);
-      if (res.success) toast.success(`${t.host} replied in ${res.latencyMs}ms`);
-      else toast.error(res.error || `Unable to ping ${t.host}`);
+      const endpoint = endpointLabel(t);
+      const res = await api.testProbe({
+        probeType: t.probeType || "icmp",
+        host: t.host,
+        timeout: t.timeout,
+        httpUrl: t.httpUrl,
+        httpMethod: t.httpMethod,
+        expectStatus: t.expectStatus,
+        tcpPort: t.tcpPort,
+      });
+      if (res.success) toast.success(`${probeLabel(t.probeType)} ${endpoint} · ${res.latencyMs}ms`);
+      else toast.error(res.error || `Probe failed for ${endpoint}`);
     } catch (err) {
       toast.error(wailsError(err));
     }
@@ -152,7 +162,8 @@ export function TargetsPage() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Group</TableHead>
-                <TableHead>Host</TableHead>
+                <TableHead>Probe</TableHead>
+                <TableHead>Endpoint</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Latency</TableHead>
                 <TableHead>Interval</TableHead>
@@ -170,7 +181,10 @@ export function TargetsPage() {
                   <TableCell>
                     <GroupBadge name={t.groupName} color={t.groupColor} />
                   </TableCell>
-                  <TableCell className="font-mono text-xs">{t.host}</TableCell>
+                  <TableCell className="text-xs uppercase tracking-wide text-muted-foreground">{probeLabel(t.probeType)}</TableCell>
+                  <TableCell className="max-w-[220px] truncate font-mono text-xs" title={endpointLabel(t)}>
+                    {endpointLabel(t)}
+                  </TableCell>
                   <TableCell>
                     <StatusBadge status={t.lastStatus} />
                   </TableCell>
@@ -194,7 +208,7 @@ export function TargetsPage() {
                         >
                           Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => void testPing(t)}>Test ping</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => void testProbe(t)}>Test probe</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => void muteOne(t)}>
                           {isMuted(t.mutedUntil) ? "Unmute alerts" : "Mute 1 hour"}
                         </DropdownMenuItem>

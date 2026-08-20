@@ -21,7 +21,7 @@ Ping on a schedule. Catch real outages. Alert on your terms.
 
 ---
 
-PingPulse is a native desktop app — not a SaaS, not a cloud agent, not a browser tab you forget to refresh. It lives in the system tray, pings your hosts with ICMP, stores history locally in SQLite, and can wake you through desktop toasts, SMS, webhooks, or Telegram.
+PingPulse is a native desktop app — not a SaaS, not a cloud agent, not a browser tab you forget to refresh. It lives in the system tray, probes your hosts with ICMP, HTTP, or TCP, stores history locally in SQLite, and can wake you through desktop toasts, SMS, webhooks, or Telegram.
 
 Built for people who run their own boxes and want to know the moment one of them goes quiet.
 
@@ -40,18 +40,22 @@ Most “uptime” tools assume a server, an account, and a monthly invoice. Ping
 ## Features
 
 **Monitoring**
-- Per-target ICMP ping: interval, timeout, retries, retry delay
+- Per-target probes: **ICMP**, **HTTP** (status check), and **TCP** (port dial) with interval, timeout, retries, retry delay
 - Status model: `online` · `offline` · `unknown` · `disabled`
 - Configurable **failure threshold** and **recovery threshold** so flapping links do not spam you
 - High-latency and timeout events, independent of offline detection
+- **Maintenance windows** (all targets, one group, or one target) that can suppress checks and/or notifications
+- **Incidents** open on offline and close on recovery, with downtime / MTTR outage reports
 - Pause all checks, or stop the scheduler entirely, without losing targets
 
 **Product surface**
-- Live dashboard: counts, uptime %, next check, status donut, group filter
-- Target list with enable/disable, mute, and groups
-- Target details: latency area chart, availability strip, success/failure donut, recent events
+- Live dashboard: counts, uptime %, open incidents, active maintenance, status donut, group filter
+- Target list with probe type, endpoint, enable/disable, mute, and groups
+- Target details: latency area chart, availability strip, open incident / maintenance badges, recent events
+- Incidents page: filterable outage list plus report (MTTR, downtime, per-target uptime)
+- Maintenance page: schedule windows with scope and suppress options
 - History with filters: target, status, date range, search
-- JSON / CSV import and export (including group names)
+- JSON / CSV import and export (including group names and probe fields)
 
 **Operations**
 - Dark / light theme
@@ -84,8 +88,8 @@ flowchart LR
 
   subgraph Core["Go backend"]
     Sched["Scheduler"]
-    Engine["Ping engine"]
-    ICMP["ICMP pinger"]
+    Engine["Probe engine"]
+    ICMP["ICMP / HTTP / TCP"]
     Hub["Notification hub"]
     Repo["Repositories"]
     DB[("SQLite WAL")]
@@ -114,7 +118,7 @@ internal/
   domain/          entities, validation, event names, mute helpers
   database/        SQLite open + SQL migrations
   repository/      targets, results, events, settings, notifications, groups
-  monitor/         ICMP pinger, status evaluator, check engine
+  monitor/         ICMP/HTTP/TCP probers, status evaluator, check engine, maintenance + incidents
   scheduler/       one goroutine per enabled target, context cancellation
   notification/    provider interface + desktop / SMS / webhook / Telegram
   autostart/       Windows Run key, macOS LaunchAgent, Linux .desktop
@@ -126,7 +130,7 @@ internal/
   appicon/         generated pulse icon
 
 frontend/src/
-  pages/           Dashboard, Targets, History, Notifications, Settings
+  pages/           Dashboard, Targets, Incidents, Maintenance, History, Notifications, Settings
   components/      charts, groups, forms, shadcn primitives
   stores/          zustand (theme, monitoring, mute, refresh)
   services/api.ts  typed Wails wrappers
@@ -240,14 +244,20 @@ pnpm dev
 
 Hosts are IPv4/IPv6 or DNS names. `http://` prefixes and trailing paths are stripped. Minimum interval is 5 seconds.
 
-## ICMP notes
+## Probe notes
 
-PingPulse uses [`prometheus-community/pro-bing`](https://github.com/prometheus-community/pro-bing).
+**ICMP** uses [`prometheus-community/pro-bing`](https://github.com/prometheus-community/pro-bing).
 
 - **Windows** — native ICMP (`SetPrivileged(true)`).
 - **Linux / macOS** — unprivileged UDP ICMP when the OS allows it. Some hosts still need `CAP_NET_RAW` or root for raw ICMP.
 
-A check that times out, fails DNS, or never receives a packet is a failed ping. The evaluator only marks a target **offline** after `failureThreshold` consecutive failures, and **online** again after `recoveryThreshold` consecutive successes. That is the difference between “the network hiccuped” and “the box is gone”.
+**HTTP** performs a request to the configured URL and treats the probe as successful when the status code matches `expectStatus` (default `200`).
+
+**TCP** dials `host:port` within the timeout; a successful connect is online.
+
+A check that times out, fails DNS, or never receives a packet is a failed probe. The evaluator only marks a target **offline** after `failureThreshold` consecutive failures, and **online** again after `recoveryThreshold` consecutive successes. That is the difference between “the network hiccuped” and “the box is gone”.
+
+During an active **maintenance window**, PingPulse can skip checks and/or suppress notifications for the scoped targets. If checks still run, offline transitions continue to open **incidents** for the outage report even when alerts are quiet.
 
 ## Notifications
 
@@ -312,7 +322,7 @@ Migrations are versioned SQL under `internal/database/migrations` and applied on
 | `notification_cooldowns` | Last send per target + kind |
 | `app_settings` | Single-row JSON blob |
 
-There is no analytics, no crash reporter, and no network call except ICMP to *your* hosts, the notification endpoints *you* configure, and GitHub when you check for updates.
+There is no analytics, no crash reporter, and no network call except probes to *your* hosts, the notification endpoints *you* configure, and GitHub when you check for updates.
 
 ## In-app updates
 

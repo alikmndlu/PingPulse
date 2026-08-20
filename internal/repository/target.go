@@ -49,7 +49,14 @@ func (r *TargetRepository) Get(ctx context.Context, id string) (domain.Target, e
 }
 
 func (r *TargetRepository) GetByHost(ctx context.Context, host string) (domain.Target, error) {
-	row := r.db.QueryRowContext(ctx, `SELECT `+targetColumns+` FROM targets t LEFT JOIN target_groups g ON g.id = t.group_id WHERE lower(t.host) = lower(?)`, host)
+	return r.FindByIdentity(ctx, domain.ProbeICMP, host, 0, "")
+}
+
+func (r *TargetRepository) FindByIdentity(ctx context.Context, probe domain.ProbeType, host string, tcpPort int, httpURL string) (domain.Target, error) {
+	probe = domain.NormalizeProbeType(string(probe))
+	row := r.db.QueryRowContext(ctx, `SELECT `+targetColumns+` FROM targets t LEFT JOIN target_groups g ON g.id = t.group_id
+		WHERE t.probe_type = ? AND lower(t.host) = lower(?) AND t.tcp_port = ? AND t.http_url = ?`,
+		probe, host, tcpPort, httpURL)
 	t, err := scanTarget(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return domain.Target{}, domain.ErrNotFound
@@ -67,16 +74,27 @@ func (r *TargetRepository) Create(ctx context.Context, t domain.Target) (domain.
 	if t.LastStatus == "" {
 		t.LastStatus = domain.StatusUnknown
 	}
+	if t.ProbeType == "" {
+		t.ProbeType = domain.ProbeICMP
+	}
+	if t.HTTPMethod == "" {
+		t.HTTPMethod = "GET"
+	}
+	if t.ExpectStatus == 0 {
+		t.ExpectStatus = 200
+	}
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO targets (
 			id, name, host, enabled, interval_seconds, timeout_seconds, retry_count, retry_delay_seconds,
 			created_at, updated_at, last_status, last_latency_ms, last_checked_at, last_success_at, last_failure_at,
-			consecutive_failures, consecutive_successes, group_id, muted_until
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			consecutive_failures, consecutive_successes, group_id, muted_until,
+			probe_type, http_url, http_method, expect_status, tcp_port
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		t.ID, t.Name, t.Host, boolToInt(t.Enabled), t.Interval, t.Timeout, t.RetryCount, t.RetryDelay,
 		t.CreatedAt.Format(time.RFC3339Nano), t.UpdatedAt.Format(time.RFC3339Nano), t.LastStatus,
 		nullInt(t.LastLatency), nullTime(t.LastCheckedAt), nullTime(t.LastSuccessAt), nullTime(t.LastFailureAt),
 		t.ConsecutiveFailures, t.ConsecutiveSuccesses, nullEmpty(t.GroupID), nullEmpty(t.MutedUntil),
+		t.ProbeType, t.HTTPURL, t.HTTPMethod, t.ExpectStatus, t.TCPPort,
 	)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "unique") {
@@ -89,16 +107,27 @@ func (r *TargetRepository) Create(ctx context.Context, t domain.Target) (domain.
 
 func (r *TargetRepository) Update(ctx context.Context, t domain.Target) (domain.Target, error) {
 	t.UpdatedAt = time.Now().UTC()
+	if t.ProbeType == "" {
+		t.ProbeType = domain.ProbeICMP
+	}
+	if t.HTTPMethod == "" {
+		t.HTTPMethod = "GET"
+	}
+	if t.ExpectStatus == 0 {
+		t.ExpectStatus = 200
+	}
 	res, err := r.db.ExecContext(ctx, `
 		UPDATE targets SET
 			name = ?, host = ?, enabled = ?, interval_seconds = ?, timeout_seconds = ?, retry_count = ?, retry_delay_seconds = ?,
 			updated_at = ?, last_status = ?, last_latency_ms = ?, last_checked_at = ?, last_success_at = ?, last_failure_at = ?,
-			consecutive_failures = ?, consecutive_successes = ?, group_id = ?, muted_until = ?
+			consecutive_failures = ?, consecutive_successes = ?, group_id = ?, muted_until = ?,
+			probe_type = ?, http_url = ?, http_method = ?, expect_status = ?, tcp_port = ?
 		WHERE id = ?`,
 		t.Name, t.Host, boolToInt(t.Enabled), t.Interval, t.Timeout, t.RetryCount, t.RetryDelay,
 		t.UpdatedAt.Format(time.RFC3339Nano), t.LastStatus, nullInt(t.LastLatency),
 		nullTime(t.LastCheckedAt), nullTime(t.LastSuccessAt), nullTime(t.LastFailureAt),
-		t.ConsecutiveFailures, t.ConsecutiveSuccesses, nullEmpty(t.GroupID), nullEmpty(t.MutedUntil), t.ID,
+		t.ConsecutiveFailures, t.ConsecutiveSuccesses, nullEmpty(t.GroupID), nullEmpty(t.MutedUntil),
+		t.ProbeType, t.HTTPURL, t.HTTPMethod, t.ExpectStatus, t.TCPPort, t.ID,
 	)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "unique") {
@@ -191,7 +220,8 @@ func (r *TargetRepository) Metrics(ctx context.Context, targetID string) (domain
 
 const targetColumns = `t.id, t.name, t.host, t.enabled, t.interval_seconds, t.timeout_seconds, t.retry_count, t.retry_delay_seconds,
 	t.created_at, t.updated_at, t.last_status, t.last_latency_ms, t.last_checked_at, t.last_success_at, t.last_failure_at,
-	t.consecutive_failures, t.consecutive_successes, IFNULL(t.group_id,''), IFNULL(t.muted_until,''), IFNULL(g.name,''), IFNULL(g.color,'')`
+	t.consecutive_failures, t.consecutive_successes, IFNULL(t.group_id,''), IFNULL(t.muted_until,''), IFNULL(g.name,''), IFNULL(g.color,''),
+	IFNULL(t.probe_type,'icmp'), IFNULL(t.http_url,''), IFNULL(t.http_method,'GET'), IFNULL(t.expect_status,200), IFNULL(t.tcp_port,0)`
 
 type scanner interface {
 	Scan(dest ...any) error
@@ -204,16 +234,19 @@ func scanTarget(s scanner) (domain.Target, error) {
 	var lastStatus string
 	var latency sql.NullInt64
 	var checked, successAt, failAt sql.NullString
+	var probeType string
 	err := s.Scan(
 		&t.ID, &t.Name, &t.Host, &enabled, &t.Interval, &t.Timeout, &t.RetryCount, &t.RetryDelay,
 		&created, &updated, &lastStatus, &latency, &checked, &successAt, &failAt,
 		&t.ConsecutiveFailures, &t.ConsecutiveSuccesses, &t.GroupID, &t.MutedUntil, &t.GroupName, &t.GroupColor,
+		&probeType, &t.HTTPURL, &t.HTTPMethod, &t.ExpectStatus, &t.TCPPort,
 	)
 	if err != nil {
 		return t, err
 	}
 	t.Enabled = enabled == 1
 	t.LastStatus = domain.TargetStatus(lastStatus)
+	t.ProbeType = domain.NormalizeProbeType(probeType)
 	t.CreatedAt, _ = time.Parse(time.RFC3339Nano, created)
 	t.UpdatedAt, _ = time.Parse(time.RFC3339Nano, updated)
 	if latency.Valid {

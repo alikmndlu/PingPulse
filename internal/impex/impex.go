@@ -14,11 +14,7 @@ import (
 func ExportJSON(targets []domain.Target) (string, error) {
 	items := make([]domain.TargetExport, 0, len(targets))
 	for _, t := range targets {
-		items = append(items, domain.TargetExport{
-			Name: t.Name, Host: t.Host, Enabled: t.Enabled,
-			Interval: t.Interval, Timeout: t.Timeout, RetryCount: t.RetryCount, RetryDelay: t.RetryDelay,
-			Group: t.GroupName,
-		})
+		items = append(items, toExport(t))
 	}
 	b, err := json.MarshalIndent(items, "", "  ")
 	if err != nil {
@@ -30,16 +26,27 @@ func ExportJSON(targets []domain.Target) (string, error) {
 func ExportCSV(targets []domain.Target) (string, error) {
 	var buf bytes.Buffer
 	w := csv.NewWriter(&buf)
-	_ = w.Write([]string{"name", "host", "enabled", "interval", "timeout", "retryCount", "retryDelay", "group"})
+	_ = w.Write([]string{"name", "host", "enabled", "interval", "timeout", "retryCount", "retryDelay", "group", "probeType", "httpUrl", "httpMethod", "expectStatus", "tcpPort"})
 	for _, t := range targets {
+		e := toExport(t)
 		_ = w.Write([]string{
-			t.Name, t.Host, strconv.FormatBool(t.Enabled),
-			strconv.Itoa(t.Interval), strconv.Itoa(t.Timeout),
-			strconv.Itoa(t.RetryCount), strconv.Itoa(t.RetryDelay), t.GroupName,
+			e.Name, e.Host, strconv.FormatBool(e.Enabled),
+			strconv.Itoa(e.Interval), strconv.Itoa(e.Timeout),
+			strconv.Itoa(e.RetryCount), strconv.Itoa(e.RetryDelay), e.Group,
+			e.ProbeType, e.HTTPURL, e.HTTPMethod, strconv.Itoa(e.ExpectStatus), strconv.Itoa(e.TCPPort),
 		})
 	}
 	w.Flush()
 	return buf.String(), w.Error()
+}
+
+func toExport(t domain.Target) domain.TargetExport {
+	return domain.TargetExport{
+		Name: t.Name, Host: t.Host, Enabled: t.Enabled,
+		Interval: t.Interval, Timeout: t.Timeout, RetryCount: t.RetryCount, RetryDelay: t.RetryDelay,
+		Group: t.GroupName, ProbeType: string(domain.NormalizeProbeType(string(t.ProbeType))),
+		HTTPURL: t.HTTPURL, HTTPMethod: t.HTTPMethod, ExpectStatus: t.ExpectStatus, TCPPort: t.TCPPort,
+	}
 }
 
 func Parse(payload, format string) ([]domain.CreateTargetInput, error) {
@@ -102,7 +109,7 @@ func parseCSV(payload string) ([]domain.CreateTargetInput, error) {
 		if strings.TrimSpace(name) == "" && strings.TrimSpace(host) == "" {
 			continue
 		}
-		it := domain.TargetExport{Name: name, Host: host, Enabled: true, Interval: 120, Timeout: 5, RetryCount: 3, RetryDelay: 2}
+		it := domain.TargetExport{Name: name, Host: host, Enabled: true, Interval: 120, Timeout: 5, RetryCount: 3, RetryDelay: 2, ProbeType: "icmp", ExpectStatus: 200}
 		if v := col(row, header, "enabled"); v != "" {
 			it.Enabled = parseBool(v)
 		}
@@ -111,6 +118,13 @@ func parseCSV(payload string) ([]domain.CreateTargetInput, error) {
 		it.RetryCount = parseInt(col(row, header, "retrycount"), it.RetryCount)
 		it.RetryDelay = parseInt(col(row, header, "retrydelay"), it.RetryDelay)
 		it.Group = col(row, header, "group")
+		if v := col(row, header, "probetype"); v != "" {
+			it.ProbeType = v
+		}
+		it.HTTPURL = col(row, header, "httpurl")
+		it.HTTPMethod = col(row, header, "httpmethod")
+		it.ExpectStatus = parseInt(col(row, header, "expectstatus"), it.ExpectStatus)
+		it.TCPPort = parseInt(col(row, header, "tcpport"), it.TCPPort)
 		out = append(out, exportToInput(it))
 	}
 	if len(out) == 0 {
@@ -122,10 +136,16 @@ func parseCSV(payload string) ([]domain.CreateTargetInput, error) {
 func exportToInput(it domain.TargetExport) domain.CreateTargetInput {
 	enabled := it.Enabled
 	interval, timeout, retry, delay := it.Interval, it.Timeout, it.RetryCount, it.RetryDelay
+	expect := it.ExpectStatus
+	if expect == 0 {
+		expect = 200
+	}
+	tcp := it.TCPPort
 	return domain.CreateTargetInput{
 		Name: it.Name, Host: it.Host, Enabled: &enabled,
 		Interval: &interval, Timeout: &timeout, RetryCount: &retry, RetryDelay: &delay,
-		GroupID: strings.TrimSpace(it.Group),
+		GroupID: it.Group, ProbeType: it.ProbeType, HTTPURL: it.HTTPURL, HTTPMethod: it.HTTPMethod,
+		ExpectStatus: &expect, TCPPort: &tcp,
 	}
 }
 

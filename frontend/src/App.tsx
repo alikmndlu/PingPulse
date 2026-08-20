@@ -4,6 +4,8 @@ import { DashboardPage } from "@/pages/Dashboard";
 import { TargetsPage } from "@/pages/Targets";
 import { TargetDetailsPage } from "@/pages/TargetDetails";
 import { HistoryPage } from "@/pages/History";
+import { IncidentsPage } from "@/pages/Incidents";
+import { MaintenancePage } from "@/pages/Maintenance";
 import { NotificationsPage } from "@/pages/Notifications";
 import { SettingsPage } from "@/pages/Settings";
 import { useEffect } from "react";
@@ -37,6 +39,8 @@ export default function App() {
           <Route path="/" element={<DashboardPage />} />
           <Route path="/targets" element={<TargetsPage />} />
           <Route path="/targets/:id" element={<TargetDetailsPage />} />
+          <Route path="/incidents" element={<IncidentsPage />} />
+          <Route path="/maintenance" element={<MaintenancePage />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/settings" element={<SettingsPage />} />

@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { GROUP_NONE } from "@/lib/groups";
 import { api } from "@/services/api";
-import type { CreateTargetInput, Target, TargetGroup } from "@/types";
+import type { CreateTargetInput, ProbeType, Target, TargetGroup } from "@/types";
 
 const empty = {
   name: "",
@@ -18,6 +18,11 @@ const empty = {
   retryCount: 3,
   retryDelay: 2,
   groupId: GROUP_NONE,
+  probeType: "icmp" as ProbeType,
+  httpUrl: "",
+  httpMethod: "GET",
+  expectStatus: 200,
+  tcpPort: 443,
 };
 
 export function TargetForm({
@@ -52,18 +57,25 @@ export function TargetForm({
         retryCount: initial.retryCount,
         retryDelay: initial.retryDelay,
         groupId: initial.groupId || GROUP_NONE,
+        probeType: (initial.probeType || "icmp") as ProbeType,
+        httpUrl: initial.httpUrl || "",
+        httpMethod: initial.httpMethod || "GET",
+        expectStatus: initial.expectStatus || 200,
+        tcpPort: initial.tcpPort || 443,
       });
     } else {
       setForm(empty);
     }
   }, [initial, open]);
 
+  const probe = form.probeType;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{initial ? "Edit target" : "Add target"}</DialogTitle>
-          <DialogDescription>ICMP checks run in the backend and never block the UI.</DialogDescription>
+          <DialogDescription>ICMP, HTTP, and TCP probes run in the backend and never block the UI.</DialogDescription>
         </DialogHeader>
         <form
           className="grid gap-4"
@@ -72,6 +84,7 @@ export function TargetForm({
             await onSubmit({
               ...form,
               groupId: form.groupId === GROUP_NONE ? "" : form.groupId,
+              host: probe === "http" ? form.host || form.httpUrl : form.host,
             });
           }}
         >
@@ -80,9 +93,58 @@ export function TargetForm({
             <Input id="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Production API" required />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="host">IP / Hostname</Label>
-            <Input id="host" value={form.host} onChange={(e) => setForm({ ...form, host: e.target.value })} placeholder="10.10.10.20" required />
+            <Label>Probe type</Label>
+            <Select value={form.probeType} onValueChange={(probeType) => setForm({ ...form, probeType: probeType as ProbeType })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="icmp">ICMP ping</SelectItem>
+                <SelectItem value="http">HTTP(S) check</SelectItem>
+                <SelectItem value="tcp">TCP port</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+          {probe === "http" ? (
+            <>
+              <div className="grid gap-2">
+                <Label htmlFor="httpUrl">URL</Label>
+                <Input id="httpUrl" value={form.httpUrl} onChange={(e) => setForm({ ...form, httpUrl: e.target.value })} placeholder="https://api.example.com/health" required />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-2">
+                  <Label>Method</Label>
+                  <Select value={form.httpMethod} onValueChange={(httpMethod) => setForm({ ...form, httpMethod })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"].map((m) => (
+                        <SelectItem key={m} value={m}>
+                          {m}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="expectStatus">Expected status</Label>
+                  <Input id="expectStatus" type="number" min={100} max={599} value={form.expectStatus} onChange={(e) => setForm({ ...form, expectStatus: Number(e.target.value) })} />
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="grid gap-2">
+              <Label htmlFor="host">IP / Hostname</Label>
+              <Input id="host" value={form.host} onChange={(e) => setForm({ ...form, host: e.target.value })} placeholder="10.10.10.20" required />
+            </div>
+          )}
+          {probe === "tcp" ? (
+            <div className="grid gap-2">
+              <Label htmlFor="tcpPort">TCP port</Label>
+              <Input id="tcpPort" type="number" min={1} max={65535} value={form.tcpPort} onChange={(e) => setForm({ ...form, tcpPort: Number(e.target.value) })} />
+            </div>
+          ) : null}
           <div className="grid gap-2">
             <Label>Group</Label>
             <Select value={form.groupId} onValueChange={(groupId) => setForm({ ...form, groupId })}>

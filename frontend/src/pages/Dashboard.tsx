@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Activity, AlertTriangle, Clock, Server, Signal, WifiOff } from "lucide-react";
+import { Activity, AlertTriangle, Clock, Server, Signal, Siren, WifiOff, Wrench } from "lucide-react";
 import { MetricCard } from "@/components/MetricCard";
 import { StatusBadge } from "@/components/StatusBadge";
 import { GroupBadge, GroupFilter } from "@/components/GroupFilter";
@@ -14,6 +14,7 @@ import type { DashboardStats, Target, TargetGroup } from "@/types";
 import { formatLatency, formatPercent, formatRelative, formatTime } from "@/lib/format";
 import { countByGroup, filterTargets, GROUP_ALL } from "@/lib/groups";
 import { isMuted } from "@/lib/mute";
+import { endpointLabel, probeLabel } from "@/lib/probe";
 import { toast } from "sonner";
 import { wailsError } from "@/lib/utils";
 
@@ -80,12 +81,19 @@ export function DashboardPage() {
         <p className="text-sm text-muted-foreground">Live view of every host PingPulse is watching.</p>
       </div>
       <GroupFilter groups={groups} targets={targets} value={groupFilter} onChange={setGroupFilter} />
-      <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-8">
         <MetricCard label="Targets" value={overview.total} icon={Server} />
         <MetricCard label="Online" value={overview.online} icon={Signal} tone="success" />
         <MetricCard label="Offline" value={overview.offline} icon={WifiOff} tone="danger" />
         <MetricCard label="Unknown" value={overview.unknown} icon={Activity} tone="warning" />
         <MetricCard label="With errors" value={overview.errors} icon={AlertTriangle} tone="danger" />
+        <MetricCard
+          label="Open incidents"
+          value={stats?.openIncidents ?? 0}
+          icon={Siren}
+          tone={(stats?.openIncidents ?? 0) > 0 ? "danger" : undefined}
+        />
+        <MetricCard label="Maintenance" value={stats?.activeMaintenance ?? 0} icon={Wrench} tone="warning" />
         <MetricCard
           label="Uptime"
           value={formatPercent(overview.uptime)}
@@ -146,7 +154,8 @@ export function DashboardPage() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Group</TableHead>
-                <TableHead>Host</TableHead>
+                <TableHead>Probe</TableHead>
+                <TableHead>Endpoint</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Latency</TableHead>
                 <TableHead>Last success</TableHead>
@@ -157,7 +166,7 @@ export function DashboardPage() {
             <TableBody>
               {visible.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
                     {targets.length === 0 ? "No targets yet. Add a host to start monitoring." : "No targets in this group."}
                   </TableCell>
                 </TableRow>
@@ -171,7 +180,10 @@ export function DashboardPage() {
                     <TableCell>
                       <GroupBadge name={t.groupName} color={t.groupColor} />
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{t.host}</TableCell>
+                    <TableCell className="text-xs uppercase tracking-wide text-muted-foreground">{probeLabel(t.probeType)}</TableCell>
+                    <TableCell className="max-w-[200px] truncate font-mono text-xs" title={endpointLabel(t)}>
+                      {endpointLabel(t)}
+                    </TableCell>
                     <TableCell>
                       <StatusBadge status={t.lastStatus} />
                     </TableCell>
