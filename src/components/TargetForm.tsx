@@ -8,24 +8,23 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GROUP_NONE } from "@/lib/groups";
 import { api } from "@/services/api";
-import type { CreateTargetInput, ProbeType, Target, TargetGroup } from "@/types";
-import { Lock, ShieldCheck, Zap, Sliders } from "lucide-react";
+import type { CreateTargetInput, ProbeType, Target, TargetGroup, SyntheticStep } from "@/types";
+import { Lock, Zap, Sliders, Layers, RefreshCcw, Network } from "lucide-react";
 
 const empty = {
   name: "",
   host: "",
   enabled: true,
-  interval: 120,
+  interval: 10,
   timeout: 5,
-  retryCount: 3,
-  retryDelay: 2,
+  retryCount: 2,
+  retryDelay: 1,
   groupId: GROUP_NONE,
   probeType: "icmp" as ProbeType,
   httpUrl: "",
   httpMethod: "GET",
   expectStatus: 200,
   tcpPort: 443,
-  // SSL & Assertions
   sslEnabled: true,
   sslAlertDays: 14,
   matchBody: "",
@@ -33,6 +32,15 @@ const empty = {
   matchJsonValue: "",
   maxLatencyMs: 500,
   customHeadersRaw: "",
+  dnsRecordType: "A" as "A" | "AAAA" | "CNAME" | "MX" | "TXT" | "NS",
+  dnsExpectedValue: "",
+  dnsNameserver: "1.1.1.1",
+  autoHealingEnabled: false,
+  autoHealingWebhook: "",
+  heartbeatIntervalSec: 3600,
+  syntheticStepUrl1: "",
+  syntheticStepMethod1: "POST" as const,
+  syntheticStepBody1: "",
 };
 
 export function TargetForm({
@@ -50,7 +58,7 @@ export function TargetForm({
 }) {
   const [form, setForm] = useState(empty);
   const [groups, setGroups] = useState<TargetGroup[]>([]);
-  const [tab, setTab] = useState<"general" | "assertions" | "ssl">("general");
+  const [tab, setTab] = useState<"general" | "assertions" | "synthetic" | "ssl">("general");
 
   useEffect(() => {
     if (!open) return;
@@ -82,6 +90,15 @@ export function TargetForm({
         customHeadersRaw: initial.assertions?.customHeaders
           ? JSON.stringify(initial.assertions.customHeaders, null, 2)
           : "",
+        dnsRecordType: initial.dnsConfig?.recordType || "A",
+        dnsExpectedValue: initial.dnsConfig?.expectedValue || "",
+        dnsNameserver: initial.dnsConfig?.nameserver || "1.1.1.1",
+        autoHealingEnabled: initial.autoHealing?.enabled || false,
+        autoHealingWebhook: initial.autoHealing?.webhookUrl || "",
+        heartbeatIntervalSec: initial.heartbeatIntervalSec || 3600,
+        syntheticStepUrl1: initial.syntheticSteps?.[0]?.url || "",
+        syntheticStepMethod1: initial.syntheticSteps?.[0]?.method || "POST",
+        syntheticStepBody1: initial.syntheticSteps?.[0]?.body || "",
       });
     } else {
       setForm(empty);
@@ -92,27 +109,31 @@ export function TargetForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{initial ? "Edit target" : "Add target"}</DialogTitle>
+          <DialogTitle>{initial ? "Edit Prober Target" : "Add Prober Target"}</DialogTitle>
           <DialogDescription>
-            Multi-protocol monitoring with SSL/TLS expiration checks and deep response assertions.
+            Configure ICMP, HTTP/S, DNS, WebSockets, Dead Man Snitch or Multi-step Synthetic Probes.
           </DialogDescription>
         </DialogHeader>
 
         <Tabs value={tab} onValueChange={(t) => setTab(t as any)} className="w-full">
-          <TabsList className="grid grid-cols-3 mb-3">
+          <TabsList className="grid grid-cols-4 mb-3">
             <TabsTrigger value="general" className="flex items-center gap-1.5 text-xs">
               <Zap className="h-3.5 w-3.5" />
-              Probe & Timing
+              Probe & Protocol
             </TabsTrigger>
             <TabsTrigger value="assertions" className="flex items-center gap-1.5 text-xs">
               <Sliders className="h-3.5 w-3.5" />
               Assertions & SLA
             </TabsTrigger>
+            <TabsTrigger value="synthetic" className="flex items-center gap-1.5 text-xs">
+              <Layers className="h-3.5 w-3.5" />
+              Synthetic & Healing
+            </TabsTrigger>
             <TabsTrigger value="ssl" className="flex items-center gap-1.5 text-xs">
               <Lock className="h-3.5 w-3.5" />
-              SSL / TLS
+              SSL & DNS
             </TabsTrigger>
           </TabsList>
 
@@ -125,94 +146,121 @@ export function TargetForm({
                 try {
                   parsedHeaders = JSON.parse(form.customHeadersRaw);
                 } catch {
-                  // Ignore parse error
+                  // Ignore
                 }
               }
+
+              const syntheticSteps: SyntheticStep[] | undefined = form.syntheticStepUrl1
+                ? [
+                    {
+                      id: "step-1",
+                      name: "Step 1: Auth & Handshake",
+                      method: form.syntheticStepMethod1,
+                      url: form.syntheticStepUrl1,
+                      body: form.syntheticStepBody1,
+                      expectedStatus: 200,
+                    },
+                  ]
+                : undefined;
+
               await onSubmit({
                 ...form,
                 groupId: form.groupId === GROUP_NONE ? "" : form.groupId,
-                host: probe === "http" ? form.host || (form.httpUrl ? new URL(form.httpUrl).hostname : form.host) : form.host,
+                host:
+                  probe === "http"
+                    ? form.host || (form.httpUrl ? new URL(form.httpUrl).hostname : form.host)
+                    : form.host,
                 customHeaders: parsedHeaders,
+                syntheticSteps,
               });
             }}
           >
+            {/* General Tab */}
             <TabsContent value="general" className="space-y-3 m-0">
               <div className="grid gap-2">
-                <Label htmlFor="name">Target Name</Label>
+                <Label htmlFor="name" className="text-xs font-medium">Friendly Target Name</Label>
                 <Input
                   id="name"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Production API Gateway"
+                  placeholder="e.g. Production Checkout API Gateway"
                   required
                 />
               </div>
-              <div className="grid gap-2">
-                <Label>Probe Protocol</Label>
-                <Select
-                  value={form.probeType}
-                  onValueChange={(probeType) => setForm({ ...form, probeType: probeType as ProbeType })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="icmp">ICMP Ping (Network Echo)</SelectItem>
-                    <SelectItem value="http">HTTP(S) Endpoint Probe</SelectItem>
-                    <SelectItem value="tcp">TCP Socket Port</SelectItem>
-                  </SelectContent>
-                </Select>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-2">
+                  <Label className="text-xs font-medium">Probe Protocol</Label>
+                  <Select
+                    value={form.probeType}
+                    onValueChange={(val) => setForm({ ...form, probeType: val as ProbeType })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="icmp">ICMP Ping (Network Layer 3)</SelectItem>
+                      <SelectItem value="http">HTTP / HTTPS Endpoint (Layer 7)</SelectItem>
+                      <SelectItem value="tcp">TCP Socket Port (Layer 4)</SelectItem>
+                      <SelectItem value="websocket">WebSocket Stream (ws:// / wss://)</SelectItem>
+                      <SelectItem value="dns">DNS Record Query</SelectItem>
+                      <SelectItem value="heartbeat">Dead Man's Snitch (Cron Heartbeat)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label className="text-xs font-medium">Infrastructure Group</Label>
+                  <Select
+                    value={form.groupId}
+                    onValueChange={(val) => setForm({ ...form, groupId: val })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={GROUP_NONE}>No Group (General)</SelectItem>
+                      {groups.map((g) => (
+                        <SelectItem key={g.id} value={g.id}>
+                          <div className="flex items-center gap-2">
+                            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: g.color }} />
+                            {g.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
-              {probe === "http" ? (
-                <>
-                  <div className="grid gap-2">
-                    <Label htmlFor="httpUrl">Endpoint URL</Label>
-                    <Input
-                      id="httpUrl"
-                      value={form.httpUrl}
-                      onChange={(e) => setForm({ ...form, httpUrl: e.target.value })}
-                      placeholder="https://api.example.com/health"
-                      required
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="grid gap-2">
-                      <Label>HTTP Method</Label>
-                      <Select value={form.httpMethod} onValueChange={(httpMethod) => setForm({ ...form, httpMethod })}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"].map((m) => (
-                            <SelectItem key={m} value={m}>
-                              {m}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="expectStatus">Expected Status Code</Label>
-                      <Input
-                        id="expectStatus"
-                        type="number"
-                        min={100}
-                        max={599}
-                        value={form.expectStatus}
-                        onChange={(e) => setForm({ ...form, expectStatus: Number(e.target.value) })}
-                      />
-                    </div>
-                  </div>
-                </>
+              {probe === "http" || probe === "websocket" ? (
+                <div className="grid gap-2">
+                  <Label htmlFor="httpUrl" className="text-xs font-medium">
+                    {probe === "http" ? "Target HTTP/HTTPS URL" : "WebSocket Endpoint URL"}
+                  </Label>
+                  <Input
+                    id="httpUrl"
+                    value={form.httpUrl}
+                    onChange={(e) => setForm({ ...form, httpUrl: e.target.value })}
+                    placeholder={probe === "http" ? "https://api.example.com/healthz" : "wss://stream.example.com/v1"}
+                    required
+                  />
+                </div>
+              ) : probe === "heartbeat" ? (
+                <div className="p-3 bg-muted/30 border rounded-lg text-xs space-y-1">
+                  <p className="font-semibold text-sky-400">Dead Man's Snitch Mode</p>
+                  <p className="text-muted-foreground">
+                    PingPulse creates a unique incoming webhook token. If your background cron worker stops calling the signal within the defined window, an incident alert is raised.
+                  </p>
+                </div>
               ) : (
                 <div className="grid gap-2">
-                  <Label htmlFor="host">IP Address or Hostname</Label>
+                  <Label htmlFor="host" className="text-xs font-medium">Destination Hostname or IP</Label>
                   <Input
                     id="host"
                     value={form.host}
                     onChange={(e) => setForm({ ...form, host: e.target.value })}
-                    placeholder="1.1.1.1 or api.example.com"
+                    placeholder="1.1.1.1 or db.internal.net"
                     required
                   />
                 </div>
@@ -220,84 +268,50 @@ export function TargetForm({
 
               {probe === "tcp" && (
                 <div className="grid gap-2">
-                  <Label htmlFor="tcpPort">TCP Port</Label>
+                  <Label htmlFor="tcpPort" className="text-xs font-medium">TCP Port</Label>
                   <Input
                     id="tcpPort"
                     type="number"
-                    min={1}
-                    max={65535}
                     value={form.tcpPort}
                     onChange={(e) => setForm({ ...form, tcpPort: Number(e.target.value) })}
+                    placeholder="443"
                   />
                 </div>
               )}
 
-              <div className="grid gap-2">
-                <Label>Group / Category</Label>
-                <Select value={form.groupId} onValueChange={(groupId) => setForm({ ...form, groupId })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Ungrouped" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={GROUP_NONE}>Ungrouped</SelectItem>
-                    {groups.map((g) => (
-                      <SelectItem key={g.id} value={g.id}>
-                        {g.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="grid gap-1.5">
-                  <Label htmlFor="interval" className="text-xs">
-                    Interval (sec)
-                  </Label>
+              <div className="grid grid-cols-4 gap-2 pt-2 border-t">
+                <div>
+                  <Label className="text-[11px] text-muted-foreground">Interval (s)</Label>
                   <Input
-                    id="interval"
                     type="number"
-                    min={5}
-                    max={86400}
+                    min={2}
                     value={form.interval}
                     onChange={(e) => setForm({ ...form, interval: Number(e.target.value) })}
                   />
                 </div>
-                <div className="grid gap-1.5">
-                  <Label htmlFor="timeout" className="text-xs">
-                    Timeout (sec)
-                  </Label>
+                <div>
+                  <Label className="text-[11px] text-muted-foreground">Timeout (s)</Label>
                   <Input
-                    id="timeout"
                     type="number"
                     min={1}
-                    max={60}
                     value={form.timeout}
                     onChange={(e) => setForm({ ...form, timeout: Number(e.target.value) })}
                   />
                 </div>
-                <div className="grid gap-1.5">
-                  <Label htmlFor="retry" className="text-xs">
-                    Retry Attempts
-                  </Label>
+                <div>
+                  <Label className="text-[11px] text-muted-foreground">Retries</Label>
                   <Input
-                    id="retry"
                     type="number"
                     min={0}
-                    max={10}
                     value={form.retryCount}
                     onChange={(e) => setForm({ ...form, retryCount: Number(e.target.value) })}
                   />
                 </div>
-                <div className="grid gap-1.5">
-                  <Label htmlFor="delay" className="text-xs">
-                    Retry Delay (sec)
-                  </Label>
+                <div>
+                  <Label className="text-[11px] text-muted-foreground">Retry Delay (s)</Label>
                   <Input
-                    id="delay"
                     type="number"
-                    min={0}
-                    max={60}
+                    min={1}
                     value={form.retryDelay}
                     onChange={(e) => setForm({ ...form, retryDelay: Number(e.target.value) })}
                   />
@@ -305,124 +319,180 @@ export function TargetForm({
               </div>
             </TabsContent>
 
+            {/* Assertions & SLA Tab */}
             <TabsContent value="assertions" className="space-y-3 m-0">
-              <div className="rounded-lg border border-border/70 bg-muted/20 p-3 space-y-3">
-                <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
-                  <ShieldCheck className="h-4 w-4 text-emerald-500" />
-                  Deep Content Assertions
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Validate that the target response contains correct business data before marking it healthy.
+              <div className="grid gap-2">
+                <Label className="text-xs font-medium">Max Allowed SLA Latency (ms)</Label>
+                <Input
+                  type="number"
+                  value={form.maxLatencyMs}
+                  onChange={(e) => setForm({ ...form, maxLatencyMs: Number(e.target.value) })}
+                  placeholder="300"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Responses taking longer than this threshold mark target status as <em>Degraded</em>.
                 </p>
+              </div>
 
+              <div className="grid gap-2">
+                <Label className="text-xs font-medium">Body Keyword / Regex Assertion</Label>
+                <Input
+                  value={form.matchBody}
+                  onChange={(e) => setForm({ ...form, matchBody: e.target.value })}
+                  placeholder="e.g. status: OK or Database Connected"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <div className="grid gap-2">
-                  <Label htmlFor="matchBody" className="text-xs">
-                    Response Body Contains (Keyword or Regex)
-                  </Label>
+                  <Label className="text-xs font-medium">JSON Path</Label>
                   <Input
-                    id="matchBody"
-                    value={form.matchBody}
-                    onChange={(e) => setForm({ ...form, matchBody: e.target.value })}
-                    placeholder="e.g. &quot;healthy&quot; or &quot;status&quot;: &quot;UP&quot;"
+                    value={form.matchJsonPath}
+                    onChange={(e) => setForm({ ...form, matchJsonPath: e.target.value })}
+                    placeholder="data.health or status"
                   />
                 </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="matchJsonPath" className="text-xs">
-                      JSON Key Path
-                    </Label>
-                    <Input
-                      id="matchJsonPath"
-                      value={form.matchJsonPath}
-                      onChange={(e) => setForm({ ...form, matchJsonPath: e.target.value })}
-                      placeholder="e.g. status or data.ok"
-                    />
-                  </div>
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="matchJsonValue" className="text-xs">
-                      Expected JSON Value
-                    </Label>
-                    <Input
-                      id="matchJsonValue"
-                      value={form.matchJsonValue}
-                      onChange={(e) => setForm({ ...form, matchJsonValue: e.target.value })}
-                      placeholder="e.g. true or ok"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-2 pt-1">
-                  <Label htmlFor="maxLatencyMs" className="text-xs">
-                    SLA Max Acceptable Latency (ms)
-                  </Label>
+                <div className="grid gap-2">
+                  <Label className="text-xs font-medium">Expected Value</Label>
                   <Input
-                    id="maxLatencyMs"
-                    type="number"
-                    min={50}
-                    max={10000}
-                    value={form.maxLatencyMs}
-                    onChange={(e) => setForm({ ...form, maxLatencyMs: Number(e.target.value) })}
-                    placeholder="500"
+                    value={form.matchJsonValue}
+                    onChange={(e) => setForm({ ...form, matchJsonValue: e.target.value })}
+                    placeholder="ok or true"
                   />
-                  <span className="text-[11px] text-muted-foreground">
-                    If latency exceeds this threshold, the target will be marked as degraded.
-                  </span>
                 </div>
+              </div>
+
+              <div className="grid gap-2">
+                <Label className="text-xs font-medium">Custom HTTP Headers (JSON)</Label>
+                <Input
+                  value={form.customHeadersRaw}
+                  onChange={(e) => setForm({ ...form, customHeadersRaw: e.target.value })}
+                  placeholder='{"Authorization": "Bearer xxxx", "X-Ping-Token": "secret"}'
+                />
               </div>
             </TabsContent>
 
-            <TabsContent value="ssl" className="space-y-3 m-0">
-              <div className="rounded-lg border border-border/70 bg-muted/20 p-3 space-y-3">
+            {/* Synthetic & Self-Healing Tab */}
+            <TabsContent value="synthetic" className="space-y-3 m-0">
+              <div className="p-3 bg-muted/20 border border-border/70 rounded-lg space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Lock className="h-4 w-4 text-sky-500" />
-                    <div>
-                      <p className="text-xs font-semibold">Track SSL / TLS Certificate</p>
-                      <p className="text-[11px] text-muted-foreground">Alert before certificate expiry or validity failures</p>
-                    </div>
+                    <RefreshCcw className="h-4 w-4 text-emerald-400" />
+                    <Label className="text-xs font-semibold">Automated Self-Healing Webhook</Label>
                   </div>
                   <Switch
-                    checked={form.sslEnabled}
-                    onCheckedChange={(sslEnabled) => setForm({ ...form, sslEnabled })}
+                    checked={form.autoHealingEnabled}
+                    onCheckedChange={(checked) => setForm({ ...form, autoHealingEnabled: checked })}
                   />
                 </div>
-
-                {form.sslEnabled && (
-                  <div className="grid gap-2 pt-2 border-t border-border/40">
-                    <Label htmlFor="sslAlertDays" className="text-xs">
-                      Expiration Warning Threshold (Days Before)
-                    </Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Trigger an automated remediation webhook (e.g. Docker container restart, Kubernetes Pod bounce, or cloud function) upon consecutive outages.
+                </p>
+                {form.autoHealingEnabled && (
+                  <div className="grid gap-2 pt-2">
+                    <Label className="text-[11px]">Remediation Webhook URL</Label>
                     <Input
-                      id="sslAlertDays"
-                      type="number"
-                      min={1}
-                      max={90}
-                      value={form.sslAlertDays}
-                      onChange={(e) => setForm({ ...form, sslAlertDays: Number(e.target.value) })}
+                      value={form.autoHealingWebhook}
+                      onChange={(e) => setForm({ ...form, autoHealingWebhook: e.target.value })}
+                      placeholder="https://ops.example.com/api/v1/auto-heal/restart-pod"
                     />
-                    <p className="text-[11px] text-muted-foreground">
-                      An alert event will be broadcast when remaining validity is less than this value.
-                    </p>
                   </div>
                 )}
               </div>
+
+              <div className="p-3 bg-muted/20 border border-border/70 rounded-lg space-y-2">
+                <div className="flex items-center gap-2">
+                  <Layers className="h-4 w-4 text-amber-400" />
+                  <Label className="text-xs font-semibold">Synthetic Flow Step 1 (Optional E2E)</Label>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="col-span-2">
+                    <Input
+                      value={form.syntheticStepUrl1}
+                      onChange={(e) => setForm({ ...form, syntheticStepUrl1: e.target.value })}
+                      placeholder="https://api.example.com/v1/auth/token"
+                      className="text-xs"
+                    />
+                  </div>
+                  <div>
+                    <Select
+                      value={form.syntheticStepMethod1}
+                      onValueChange={(val: any) => setForm({ ...form, syntheticStepMethod1: val })}
+                    >
+                      <SelectTrigger className="text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="GET">GET</SelectItem>
+                        <SelectItem value="POST">POST</SelectItem>
+                        <SelectItem value="PUT">PUT</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
             </TabsContent>
 
-            <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
-              <div>
-                <p className="text-sm font-medium">Monitoring Active</p>
-                <p className="text-xs text-muted-foreground">Include this target in active polling</p>
+            {/* SSL & DNS Tab */}
+            <TabsContent value="ssl" className="space-y-3 m-0">
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="space-y-0.5">
+                  <Label className="text-xs font-medium">SSL / TLS Expiration Monitoring</Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Inspect certificate chains and alert prior to expiration.
+                  </p>
+                </div>
+                <Switch
+                  checked={form.sslEnabled}
+                  onCheckedChange={(checked) => setForm({ ...form, sslEnabled: checked })}
+                />
               </div>
-              <Switch checked={form.enabled} onCheckedChange={(enabled) => setForm({ ...form, enabled })} />
-            </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+              {probe === "dns" && (
+                <div className="p-3 bg-muted/20 border rounded-lg space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Network className="h-4 w-4 text-sky-400" />
+                    <Label className="text-xs font-semibold">DNS Record Assertions</Label>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-[11px]">Record Type</Label>
+                      <Select
+                        value={form.dnsRecordType}
+                        onValueChange={(val: any) => setForm({ ...form, dnsRecordType: val })}
+                      >
+                        <SelectTrigger className="text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="A">A (IPv4)</SelectItem>
+                          <SelectItem value="AAAA">AAAA (IPv6)</SelectItem>
+                          <SelectItem value="CNAME">CNAME</SelectItem>
+                          <SelectItem value="MX">MX</SelectItem>
+                          <SelectItem value="TXT">TXT</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-[11px]">Expected IP / Host</Label>
+                      <Input
+                        value={form.dnsExpectedValue}
+                        onChange={(e) => setForm({ ...form, dnsExpectedValue: e.target.value })}
+                        placeholder="104.21.5.12"
+                        className="text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={busy}>
-                {initial ? "Save changes" : "Add target"}
+                {initial ? "Save Changes" : "Create Target"}
               </Button>
             </div>
           </form>

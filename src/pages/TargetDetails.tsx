@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Bell, BellOff, Lock, ShieldCheck, Sparkles, Activity, AlertTriangle } from "lucide-react";
+import { Bell, BellOff, Lock, ShieldCheck, Sparkles, Activity, AlertTriangle, Printer } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
 import { GroupBadge } from "@/components/GroupFilter";
 import { AvailabilityStrip } from "@/components/charts/AvailabilityStrip";
@@ -62,6 +62,67 @@ export function TargetDetailsPage() {
     }
   }
 
+  function printTargetSummary() {
+    if (!data) return;
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+
+    const t = data.target;
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Target Health Summary - ${t.name}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 32px; color: #111827; }
+            h1 { font-size: 22px; margin: 0 0 4px 0; }
+            .meta { color: #6b7280; font-size: 13px; margin-bottom: 20px; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; }
+            .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+            .box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px; }
+            .box-title { font-size: 11px; text-transform: uppercase; color: #6b7280; margin-bottom: 6px; }
+            .box-val { font-size: 18px; font-weight: bold; }
+            .ai-box { background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 8px; padding: 16px; margin-bottom: 24px; }
+            .ai-title { font-weight: bold; color: #5b21b6; margin-bottom: 8px; font-size: 14px; }
+            .ai-text { font-family: monospace; font-size: 12px; white-space: pre-line; line-height: 1.5; color: #374151; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          <h1>${t.name} (Probe Health & SLA Report)</h1>
+          <div class="meta">
+            Host / URL: <strong>${endpointLabel(t)}</strong> | Protocol: <strong>${t.probeType.toUpperCase()}</strong> | Status: <strong>${t.lastStatus.toUpperCase()}</strong> | Printed: ${new Date().toLocaleString()}
+          </div>
+
+          <div class="grid">
+            <div class="box">
+              <div class="box-title">Uptime (Availability)</div>
+              <div class="box-val" style="color:${data.metrics.uptimePercent >= 99.9 ? '#10b981' : '#f43f5e'}">${formatPercent(data.metrics.uptimePercent)}</div>
+            </div>
+            <div class="box">
+              <div class="box-title">Current Latency</div>
+              <div class="box-val">${formatLatency(data.metrics.currentLatency)}</div>
+            </div>
+            <div class="box">
+              <div class="box-title">p95 / p99 Percentiles</div>
+              <div class="box-val">${formatLatency(data.metrics.p95Latency)} / ${formatLatency(data.metrics.p99Latency)}</div>
+            </div>
+          </div>
+
+          <div class="ai-box">
+            <div class="ai-title">Automated AI Health & Root Cause Telemetry Analysis</div>
+            <div class="ai-text">${data.aiAnalysis || "Target operational. Response latencies conform to established SLA envelopes."}</div>
+          </div>
+
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  }
+
   const sslExpiringSoon = t.ssl && (t.ssl.daysRemaining ?? 100) <= 14;
 
   return (
@@ -100,6 +161,10 @@ export function TargetDetailsPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={printTargetSummary} className="gap-1.5">
+            <Printer className="h-4 w-4" />
+            Print Report
+          </Button>
           <Button variant={muted ? "default" : "outline"} size="sm" onClick={() => void toggleMute()}>
             {muted ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
             {muted ? `Quiet ${formatMuteRemaining(t.mutedUntil)}` : "Mute 1 hour"}

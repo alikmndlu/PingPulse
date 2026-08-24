@@ -63,6 +63,124 @@ export function SlaReportPage() {
     toast.success("SLA Report CSV exported");
   }
 
+  function printReport() {
+    if (!report) return;
+    
+    // Create an isolated printable document for clean PDF export / Print preview
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      // Fallback if popup is blocked
+      window.print();
+      return;
+    }
+
+    const rowsHtml = report.targets
+      .map(
+        (t) => `
+        <tr>
+          <td><strong>${t.targetName}</strong><br><small style="color:#666">${t.host}</small></td>
+          <td>${t.groupName || "General"}</td>
+          <td style="font-weight:bold; color:${t.uptimePercent >= t.targetSlaPercent ? '#10b981' : '#f43f5e'}">${t.uptimePercent}%</td>
+          <td>${t.targetSlaPercent}%</td>
+          <td>${formatDuration(t.actualDowntimeSec)}</td>
+          <td>${t.errorBudgetRemainingPercent}%</td>
+          <td>${t.mtbfHours} hrs</td>
+          <td>${t.mttrMinutes} min</td>
+          <td><span class="badge ${t.status}">${t.status.toUpperCase()}</span></td>
+        </tr>
+      `
+      )
+      .join("");
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>PingPulse SLA Compliance Report - ${report.period}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 32px; color: #111827; }
+            .header { border-bottom: 2px solid #e5e7eb; padding-bottom: 16px; margin-bottom: 24px; }
+            h1 { font-size: 24px; margin: 0 0 6px 0; }
+            .meta { color: #6b7280; font-size: 13px; }
+            .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+            .metric { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 16px; }
+            .metric-label { font-size: 11px; text-transform: uppercase; color: #6b7280; margin-bottom: 4px; }
+            .metric-val { font-size: 20px; font-weight: bold; }
+            table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 12px; }
+            th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #e5e7eb; }
+            th { background: #f3f4f6; font-weight: 600; color: #374151; }
+            .badge { padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+            .badge.compliant { background: #d1fae5; color: #065f46; }
+            .badge.warning { background: #fef3c7; color: #92400e; }
+            .badge.breached { background: #fee2e2; color: #991b1b; }
+            @media print {
+              body { padding: 0; }
+              button { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>PingPulse Enterprise SLA Compliance Report</h1>
+            <div class="meta">
+              Report Period: <strong>${report.period}</strong> | Target SLA: <strong>${report.slaTarget}%</strong> | Generated: <strong>${new Date().toLocaleString()}</strong>
+            </div>
+          </div>
+
+          <div class="summary">
+            <div class="metric">
+              <div class="metric-label">Overall Uptime</div>
+              <div class="metric-val" style="color: ${report.overallUptime >= report.slaTarget ? '#10b981' : '#f43f5e'}">${report.overallUptime}%</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Compliant Targets</div>
+              <div class="metric-val">${report.compliantCount} / ${report.targets.length}</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">SLA Breaches</div>
+              <div class="metric-val" style="color: ${report.breachedCount > 0 ? '#f43f5e' : '#10b981'}">${report.breachedCount}</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Consumed Error Budget</div>
+              <div class="metric-val">${report.consumedErrorBudgetHours} hrs / ${report.totalErrorBudgetHours} hrs</div>
+            </div>
+          </div>
+
+          <h3>Target Availability & Outage Metrics</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Target & Host</th>
+                <th>Group</th>
+                <th>Actual Uptime</th>
+                <th>Target SLA</th>
+                <th>Total Outage</th>
+                <th>Budget Remaining</th>
+                <th>MTBF</th>
+                <th>MTTR</th>
+                <th>Compliance</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+
+          <div style="margin-top: 32px; font-size: 11px; color: #9ca3af; text-align: right;">
+            Certified by PingPulse Automated Infrastructure Prober
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  }
+
   function exportJson() {
     if (!report) return;
     const jsonStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(report, null, 2));
@@ -93,7 +211,7 @@ export function SlaReportPage() {
             <Download className="h-4 w-4" />
             Export JSON
           </Button>
-          <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-1.5">
+          <Button variant="outline" size="sm" onClick={printReport} className="gap-1.5">
             <Printer className="h-4 w-4" />
             Print Report
           </Button>
