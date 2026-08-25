@@ -21,19 +21,23 @@ Ping on a schedule. Catch real outages. Alert on your terms.
 
 ---
 
-PingPulse is a native desktop app — not a SaaS, not a cloud agent, not a browser tab you forget to refresh. It lives in the system tray, probes your hosts with ICMP, HTTP, or TCP, stores history locally in SQLite, and can wake you through desktop toasts, SMS, webhooks, or Telegram.
+PingPulse is a native desktop app — not a SaaS, not a cloud agent, not a browser tab you forget to refresh. It lives in the system tray, probes your hosts with **ICMP**, **HTTP**, or **TCP**, stores history locally in SQLite, and can wake you through desktop toasts, SMS, webhooks, or Telegram.
 
 Built for people who run their own boxes and want to know the moment one of them goes quiet.
 
 ## What's new in 2.0
 
-v2 is the native desktop app again: Go + Wails on Windows, macOS, and Linux — not a browser-only UI. The same binary also covers operations that a ping list alone does not.
+**v2.0.0** is the cross-platform Wails desktop build again (Go backend + React UI under `frontend/`), with the operational features that ship in this tree:
 
-- **ICMP, HTTP, and TCP** on one target list. The same hostname can have more than one probe.
-- **Groups** with color labels, dashboard filters, and group names in import/export.
-- **Maintenance windows** scoped to all targets, one group, or one target. Each window can skip checks, suppress alerts, or both.
-- **Incidents** open on offline and close on recovery, with downtime, MTTR, and per-target uptime on the Incidents page.
-- **Mute** globally (Quiet 1 hour) or per target without stopping probes.
+- **Multi-probe targets** — ICMP ping, HTTP status checks, and TCP port dials on one list (same host can have more than one probe)
+- **Groups** — color labels, dashboard filters, and group names in JSON/CSV import-export
+- **Maintenance windows** — scope to all targets, one group, or one target; suppress checks and/or notifications
+- **Incidents** — open on offline, close on recovery; downtime, MTTR, and per-target uptime on the Incidents page
+- **Quiet hours** — global mute (Quiet 1 hour) and per-target mute without stopping probes
+- **In-app updates** — check and install from GitHub Releases
+- **Release CI** — tagged `v*` pushes build Windows, macOS, and Linux assets automatically
+
+Product version is stamped in `internal/updater/version.go`, `wails.json`, and `build/windows/info.json` (**2.0.0**).
 
 ## Why PingPulse
 
@@ -385,12 +389,17 @@ Output: `build/bin`.
 
 Pushing a tag that matches `v*` runs [`.github/workflows/release.yml`](.github/workflows/release.yml): Windows, Linux, and macOS in parallel, then a GitHub Release with the three archives.
 
+The tagged commit **must** include the Go module and desktop sources (`go.mod`, `main.go`, `wails.json`, `frontend/`). Setup Go reads the version from `go.mod`; without it the matrix fails immediately.
+
 ```bash
-# 1. Bump Version in version.go, wails.json, build/windows/info.json
+# 1. Bump Version in version.go, wails.json, build/windows/info.json (keep them in sync)
 # 2. Commit and push main
+git push origin main
 git tag v2.0.0
 git push origin v2.0.0
 ```
+
+If `v2.0.0` already points at an older commit, either move the tag after the fixed commit is on `main`, or cut `v2.0.1` instead.
 
 Wait for the **Release** workflow. Download from the Releases page, or let an already-updated install pick it up from Settings.
 
