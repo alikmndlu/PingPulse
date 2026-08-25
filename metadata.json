@@ -1,6 +1,0 @@
-{
-  "name": "PingPulse",
-  "description": "Network and host uptime monitoring dashboard with target metrics, incidents tracking, maintenance windows, and status alerts.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

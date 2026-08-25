@@ -25,6 +25,16 @@ PingPulse is a native desktop app — not a SaaS, not a cloud agent, not a brows
 
 Built for people who run their own boxes and want to know the moment one of them goes quiet.
 
+## What's new in 2.0
+
+v2 is the native desktop app again: Go + Wails on Windows, macOS, and Linux — not a browser-only UI. The same binary also covers operations that a ping list alone does not.
+
+- **ICMP, HTTP, and TCP** on one target list. The same hostname can have more than one probe.
+- **Groups** with color labels, dashboard filters, and group names in import/export.
+- **Maintenance windows** scoped to all targets, one group, or one target. Each window can skip checks, suppress alerts, or both.
+- **Incidents** open on offline and close on recovery, with downtime, MTTR, and per-target uptime on the Incidents page.
+- **Mute** globally (Quiet 1 hour) or per target without stopping probes.
+
 ## Why PingPulse
 
 Most “uptime” tools assume a server, an account, and a monthly invoice. PingPulse assumes a laptop, a list of hosts, and the desire to keep secrets on disk.
@@ -117,7 +127,7 @@ flowchart LR
 internal/
   domain/          entities, validation, event names, mute helpers
   database/        SQLite open + SQL migrations
-  repository/      targets, results, events, settings, notifications, groups
+  repository/      targets, results, events, settings, notifications, groups, incidents, maintenance
   monitor/         ICMP/HTTP/TCP probers, status evaluator, check engine, maintenance + incidents
   scheduler/       one goroutine per enabled target, context cancellation
   notification/    provider interface + desktop / SMS / webhook / Telegram
@@ -218,10 +228,12 @@ pnpm dev
 
 | Screen | What it is for |
 | --- | --- |
-| **Dashboard** | Fleet pulse: online / offline / unknown / disabled, uptime, next check, group filter |
-| **Targets** | Create, edit, enable, mute, group, and delete hosts |
-| **Target details** | Latency series, availability strip, last events, one-off test ping |
-| **History** | Every stored ping, filterable |
+| **Dashboard** | Fleet pulse: online / offline / unknown, open incidents, active maintenance, uptime, group filter |
+| **Targets** | Create, edit, enable, mute, group, and delete probes (ICMP / HTTP / TCP) |
+| **Target details** | Latency series, availability strip, open incident / maintenance badges, recent events, one-off test |
+| **Incidents** | Outage list plus report: downtime, MTTR, per-target uptime |
+| **Maintenance** | Schedule windows with scope and suppress checks / notifications |
+| **History** | Every stored probe result, filterable |
 | **Notifications** | Provider credentials, templates, test send, alert kinds |
 | **Settings** | Defaults, thresholds, theme, logging, autostart, tray, in-app updates |
 
@@ -242,7 +254,7 @@ pnpm dev
 | Theme | Dark |
 | Log level | `info` |
 
-Hosts are IPv4/IPv6 or DNS names. `http://` prefixes and trailing paths are stripped. Minimum interval is 5 seconds.
+Hosts are IPv4/IPv6 or DNS names. For ICMP, `http://` prefixes, ports, and trailing paths are stripped. HTTP probes keep a full URL (`httpUrl`); TCP probes keep `host` + `tcpPort`. Uniqueness is `(probe type, host, tcp port, HTTP URL)`, so one box can have an ICMP check and an HTTPS check at the same time. Minimum interval is 5 seconds.
 
 ## Probe notes
 
@@ -314,10 +326,12 @@ Migrations are versioned SQL under `internal/database/migrations` and applied on
 
 | Table | Role |
 | --- | --- |
-| `targets` | Hosts, last status, consecutive counters, group, mute |
+| `targets` | Probes, last status, consecutive counters, group, mute, HTTP/TCP fields |
 | `target_groups` | Named color groups |
 | `ping_results` | Every check; pruned to the latest **2000 rows per target** |
 | `events` | Offline / recovery / latency / timeout |
+| `incidents` | Open / resolved outages with duration and failure count |
+| `maintenance_windows` | Scheduled scopes (all / group / target); suppress checks and/or alerts |
 | `notification_configs` | Provider credentials and templates |
 | `notification_cooldowns` | Last send per target + kind |
 | `app_settings` | Single-row JSON blob |
@@ -374,8 +388,8 @@ Pushing a tag that matches `v*` runs [`.github/workflows/release.yml`](.github/w
 ```bash
 # 1. Bump Version in version.go, wails.json, build/windows/info.json
 # 2. Commit and push main
-git tag v1.1.0
-git push origin v1.1.0
+git tag v2.0.0
+git push origin v2.0.0
 ```
 
 Wait for the **Release** workflow. Download from the Releases page, or let an already-updated install pick it up from Settings.
@@ -392,7 +406,7 @@ pnpm test
 pnpm run build
 ```
 
-Backend coverage includes status evaluation, failure/recovery thresholds, scheduler start/stop/pause, SMS HTTP delivery, cooldown, repositories, import parsing, and updater version/asset selection.
+Backend coverage includes status evaluation, failure/recovery thresholds, scheduler start/stop/pause, SMS HTTP delivery, cooldown, repositories, incidents, maintenance windows, import parsing, and updater version/asset selection.
 
 Frontend tests run under Vitest + Testing Library.
 
@@ -410,6 +424,8 @@ The UI is event-driven. A 15s dashboard refresh is only a safety net.
 | `event:created` | An alert/recovery event was stored |
 | `mute:changed` | Global or per-target mute changed |
 | `groups:changed` | A group was created, updated, or deleted |
+| `incident:updated` | An incident opened or resolved |
+| `maintenance:changed` | A maintenance window was created, updated, or deleted |
 | `update:progress` | Update download percent |
 
 ## Stack
