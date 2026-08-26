@@ -10,6 +10,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <Toaster
       position="bottom-right"
       offset={18}
+      gap={10}
+      duration={3400}
       toastOptions={{
         className: "!rounded-xl !border-border !bg-card !text-foreground !shadow-lg",
       }}

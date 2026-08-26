@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Monitor, Send, Smartphone, Webhook } from "lucide-react";
 import { Page, PageHeader, ToggleRow } from "@/components/app/Page";
+import { Collapse } from "@/components/app/Motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -371,7 +372,7 @@ function ChannelCard({
         </div>
         <Switch checked={enabled} onCheckedChange={onEnabledChange} />
       </CardHeader>
-      {enabled && children ? (
+      <Collapse open={enabled && Boolean(children)}>
         <CardContent className="grid gap-4">
           {children}
           {onSave || onTest ? (
@@ -385,7 +386,7 @@ function ChannelCard({
             </div>
           ) : null}
         </CardContent>
-      ) : null}
+      </Collapse>
     </Card>
   );
 }

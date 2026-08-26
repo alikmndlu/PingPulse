@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { MotionConfig } from "motion/react";
 import { AppLayout } from "@/layouts/AppLayout";
 import { DashboardPage } from "@/pages/Dashboard";
 import { TargetsPage } from "@/pages/Targets";
@@ -12,6 +13,8 @@ import { SettingsPage } from "@/pages/Settings";
 import { useEffect } from "react";
 import { api } from "@/services/api";
 import { applyTheme, useAppStore } from "@/stores/app";
+import { appleEase } from "@/lib/motion";
+import { LaunchProvider } from "@/components/app/LaunchScreen";
 
 export default function App() {
   const setTheme = useAppStore((s) => s.setTheme);
@@ -34,21 +37,25 @@ export default function App() {
   }, [setTheme, setMonitoring, setMutedUntil]);
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<AppLayout />}>
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/targets" element={<TargetsPage />} />
-          <Route path="/targets/:id" element={<TargetDetailsPage />} />
-          <Route path="/incidents" element={<IncidentsPage />} />
-          <Route path="/sla" element={<SlaReportPage />} />
-          <Route path="/maintenance" element={<MaintenancePage />} />
-          <Route path="/history" element={<HistoryPage />} />
-          <Route path="/notifications" element={<NotificationsPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <MotionConfig reducedMotion="user" transition={{ ease: appleEase, duration: 0.38 }}>
+      <LaunchProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route element={<AppLayout />}>
+              <Route path="/" element={<DashboardPage />} />
+              <Route path="/targets" element={<TargetsPage />} />
+              <Route path="/targets/:id" element={<TargetDetailsPage />} />
+              <Route path="/incidents" element={<IncidentsPage />} />
+              <Route path="/sla" element={<SlaReportPage />} />
+              <Route path="/maintenance" element={<MaintenancePage />} />
+              <Route path="/history" element={<HistoryPage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </LaunchProvider>
+    </MotionConfig>
   );
 }

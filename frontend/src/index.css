@@ -78,6 +78,49 @@
   }
 }
 
+number-flow {
+  font: inherit;
+  --number-flow-mask-height: 0.15em;
+  --number-flow-mask-width: 0.35em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulseDot {
+    animation: none !important;
+  }
+
+  .launch-caret {
+    animation: none !important;
+    opacity: 1;
+  }
+
+  number-flow {
+    --number-flow-mask-height: 0;
+  }
+}
+
+.launch-caret {
+  display: inline-block;
+  width: 1.5px;
+  height: 0.85em;
+  margin-left: 0.12em;
+  margin-bottom: 0.06em;
+  vertical-align: -0.05em;
+  background: hsl(var(--primary));
+  animation: launchCaret 0.92s steps(1) infinite;
+}
+
+@keyframes launchCaret {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
 [dir="rtl"] .recharts-wrapper {
   direction: ltr;
 }

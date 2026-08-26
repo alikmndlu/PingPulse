@@ -1,5 +1,7 @@
+import { LayoutGroup, motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { GROUP_ALL, GROUP_NONE } from "@/lib/groups";
+import { spring } from "@/lib/motion";
 import type { Target, TargetGroup } from "@/types";
 
 export function GroupFilter({
@@ -26,27 +28,40 @@ export function GroupFilter({
   ];
 
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {chips
-        .filter((chip) => chip.id === GROUP_ALL || chip.count > 0)
-        .map((chip) => (
-          <button
-            key={chip.id}
-            type="button"
-            onClick={() => onChange(chip.id)}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors",
-              value === chip.id
-                ? "border-primary/30 bg-primary/10 font-medium text-foreground"
-                : "border-transparent bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground",
-            )}
-          >
-            {chip.color ? <span className="h-1.5 w-1.5 rounded-full" style={{ background: chip.color }} /> : null}
-            {chip.label}
-            <span className="font-mono text-[10px] opacity-60">{chip.count}</span>
-          </button>
-        ))}
-    </div>
+    <LayoutGroup id="group-filter">
+      <div className="flex flex-wrap gap-1.5">
+        {chips
+          .filter((chip) => chip.id === GROUP_ALL || chip.count > 0)
+          .map((chip) => (
+            <button
+              key={chip.id}
+              type="button"
+              onClick={() => onChange(chip.id)}
+              className={cn(
+                "relative inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors duration-200",
+                value === chip.id
+                  ? "border-transparent font-medium text-foreground"
+                  : "border-transparent bg-transparent text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {value === chip.id ? (
+                <motion.span
+                  layoutId="group-chip"
+                  className="absolute inset-0 rounded-full border border-primary/30 bg-primary/10"
+                  transition={spring}
+                />
+              ) : (
+                <span className="absolute inset-0 rounded-full bg-muted/60" />
+              )}
+              <span className="relative z-10 inline-flex items-center gap-1.5">
+                {chip.color ? <span className="h-1.5 w-1.5 rounded-full" style={{ background: chip.color }} /> : null}
+                {chip.label}
+                <span className="font-mono text-[10px] opacity-60">{chip.count}</span>
+              </span>
+            </button>
+          ))}
+      </div>
+    </LayoutGroup>
   );
 }
 

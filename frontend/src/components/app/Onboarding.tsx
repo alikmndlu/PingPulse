@@ -2,24 +2,27 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useLaunchDone } from "@/components/app/LaunchScreen";
 import { api } from "@/services/api";
 import { toast } from "sonner";
 import { wailsError } from "@/lib/utils";
 
 export function OnboardingDialog() {
   const navigate = useNavigate();
+  const launched = useLaunchDone();
   const [open, setOpen] = useState(false);
 
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    if (!launched) return;
     void api
       .getSettings()
       .then((s) => {
         if (!s.onboardingComplete) setOpen(true);
       })
       .catch(() => {});
-  }, []);
+  }, [launched]);
 
   async function finish(seed: boolean) {
     if (busy) return;

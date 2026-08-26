@@ -5,7 +5,10 @@ import { MetricCard } from "@/components/MetricCard";
 import { StatusBadge } from "@/components/StatusBadge";
 import { GroupBadge, GroupFilter } from "@/components/GroupFilter";
 import { EmptyState, Page, PageHeader } from "@/components/app/Page";
+import { Stagger, StaggerItem } from "@/components/app/Motion";
 import { StatusDonut } from "@/components/charts/StatusDonut";
+import { motion } from "motion/react";
+import { appleEase } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -79,26 +82,42 @@ export function DashboardPage() {
     <Page>
       <PageHeader title="Dashboard" description="Live view of every host PingPulse is watching." />
       <GroupFilter groups={groups} targets={targets} value={groupFilter} onChange={setGroupFilter} />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Targets" value={overview.total} icon={Server} />
-        <MetricCard label="Online" value={overview.online} icon={Signal} tone="success" />
-        <MetricCard label="Offline" value={overview.offline} icon={WifiOff} tone="danger" />
-        <MetricCard label="Unknown" value={overview.unknown} icon={Activity} tone="warning" />
-        <MetricCard label="With errors" value={overview.errors} icon={AlertTriangle} tone="danger" />
-        <MetricCard
-          label="Open incidents"
-          value={stats?.openIncidents ?? 0}
-          icon={Siren}
-          tone={(stats?.openIncidents ?? 0) > 0 ? "danger" : undefined}
-        />
-        <MetricCard label="Maintenance" value={stats?.activeMaintenance ?? 0} icon={Wrench} tone="warning" />
-        <MetricCard
-          label="Uptime"
-          value={formatPercent(overview.uptime)}
-          icon={Clock}
-          hint={`Last ${formatTime(stats?.lastCheck)} · Next ${formatTime(stats?.nextCheck)}`}
-        />
-      </div>
+      <Stagger className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StaggerItem>
+          <MetricCard label="Targets" value={overview.total} icon={Server} />
+        </StaggerItem>
+        <StaggerItem>
+          <MetricCard label="Online" value={overview.online} icon={Signal} tone="success" />
+        </StaggerItem>
+        <StaggerItem>
+          <MetricCard label="Offline" value={overview.offline} icon={WifiOff} tone="danger" />
+        </StaggerItem>
+        <StaggerItem>
+          <MetricCard label="Unknown" value={overview.unknown} icon={Activity} tone="warning" />
+        </StaggerItem>
+        <StaggerItem>
+          <MetricCard label="With errors" value={overview.errors} icon={AlertTriangle} tone="danger" />
+        </StaggerItem>
+        <StaggerItem>
+          <MetricCard
+            label="Open incidents"
+            value={stats?.openIncidents ?? 0}
+            icon={Siren}
+            tone={(stats?.openIncidents ?? 0) > 0 ? "danger" : undefined}
+          />
+        </StaggerItem>
+        <StaggerItem>
+          <MetricCard label="Maintenance" value={stats?.activeMaintenance ?? 0} icon={Wrench} tone="warning" />
+        </StaggerItem>
+        <StaggerItem>
+          <MetricCard
+            label="Uptime"
+            value={formatPercent(overview.uptime)}
+            icon={Clock}
+            hint={`Last ${formatTime(stats?.lastCheck)} · Next ${formatTime(stats?.nextCheck)}`}
+          />
+        </StaggerItem>
+      </Stagger>
       <div className="grid gap-4 lg:grid-cols-5">
         <Card className="lg:col-span-2">
           <CardHeader>
@@ -129,9 +148,15 @@ export function DashboardPage() {
                         {row.online}/{row.total} · {pct}%
                       </span>
                     </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-muted">
-                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: row.color }} />
-                    </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-muted">
+                        <motion.div
+                          className="h-full rounded-full"
+                          initial={false}
+                          animate={{ width: `${pct}%` }}
+                          transition={{ duration: 0.7, ease: appleEase }}
+                          style={{ background: row.color }}
+                        />
+                      </div>
                   </button>
                 );
               })

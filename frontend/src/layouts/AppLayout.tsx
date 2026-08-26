@@ -1,11 +1,15 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import { Bell, BellOff, History, LayoutDashboard, Monitor, Moon, Settings, Sun, Server, ShieldCheck, Siren, Wrench } from "lucide-react";
+import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { copy } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { formatMuteRemaining, isMuted } from "@/lib/mute";
 import { OnboardingDialog } from "@/components/app/Onboarding";
+import { PageTransition } from "@/components/app/Motion";
+import { useLaunchDone } from "@/components/app/LaunchScreen";
 import { Button } from "@/components/ui/button";
+import { appleEase, spring } from "@/lib/motion";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -53,6 +57,7 @@ function AppVersion() {
 
 export function AppLayout() {
   useWailsEvents();
+  const launched = useLaunchDone();
   const monitoring = useAppStore((s) => s.monitoring);
   const paused = useAppStore((s) => s.paused);
   const theme = useAppStore((s) => s.theme);
@@ -114,7 +119,12 @@ export function AppLayout() {
   return (
     <TooltipProvider>
       <div className="flex min-h-screen bg-background text-foreground">
-        <aside className="flex w-[220px] shrink-0 flex-col border-e border-border/80 bg-sidebar">
+        <motion.aside
+          initial={{ opacity: 0, x: -14 }}
+          animate={launched ? { opacity: 1, x: 0 } : { opacity: 0, x: -14 }}
+          transition={{ duration: 0.55, ease: appleEase }}
+          className="flex w-[220px] shrink-0 flex-col border-e border-border/80 bg-sidebar"
+        >
           <div className="flex items-center gap-2.5 px-5 py-5">
             <img src="/appicon.png" alt="" className="h-8 w-8 rounded-lg" />
             <div className="min-w-0">
@@ -122,43 +132,79 @@ export function AppLayout() {
               <p className="text-[11px] text-muted-foreground">Host monitor</p>
             </div>
           </div>
-          <nav className="flex flex-1 flex-col gap-6 overflow-auto px-3 pb-4">
-            {nav.map((section) => (
-              <div key={section.label}>
-                <p className="mb-1.5 px-2.5 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/80">
-                  {section.label}
-                </p>
-                <div className="flex flex-col gap-0.5">
-                  {section.items.map((item) => (
-                    <NavLink
-                      key={item.to}
-                      to={item.to}
-                      end={item.to === "/"}
-                      className={({ isActive }) =>
-                        cn(
-                          "flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground",
-                          isActive && "bg-muted font-medium text-foreground",
-                        )
-                      }
-                    >
-                      <item.icon className="h-3.5 w-3.5 shrink-0 opacity-80" />
-                      {item.label}
-                    </NavLink>
-                  ))}
-                </div>
+          <nav className="flex flex-1 flex-col overflow-auto px-3 pb-4">
+            <LayoutGroup>
+              <div className="flex flex-col gap-6">
+                {nav.map((section) => (
+                  <div key={section.label}>
+                    <p className="mb-1.5 px-2.5 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/80">
+                      {section.label}
+                    </p>
+                    <div className="flex flex-col gap-0.5">
+                      {section.items.map((item) => (
+                        <NavLink
+                          key={item.to}
+                          to={item.to}
+                          end={item.to === "/"}
+                          className={({ isActive }) =>
+                            cn(
+                              "relative flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] text-muted-foreground transition-colors duration-200 hover:bg-muted/50 hover:text-foreground",
+                              isActive && "font-medium text-foreground",
+                            )
+                          }
+                        >
+                          {({ isActive }) => (
+                            <>
+                              {isActive ? (
+                                <motion.span
+                                  layoutId="nav-active"
+                                  className="absolute inset-0 rounded-lg bg-muted"
+                                  transition={spring}
+                                />
+                              ) : null}
+                              <item.icon className="relative z-10 h-3.5 w-3.5 shrink-0 opacity-80" />
+                              <span className="relative z-10">{item.label}</span>
+                            </>
+                          )}
+                        </NavLink>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            </LayoutGroup>
           </nav>
           <div className="space-y-1 border-t border-border/80 px-5 py-4">
             <p className="text-[11px] leading-relaxed text-muted-foreground">{copy.tagline}</p>
             <AppVersion />
           </div>
-        </aside>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-[52px] items-center justify-between border-b border-border/80 px-6">
-            <div className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-muted/40 px-2.5 py-1">
+        </motion.aside>
+        <motion.div
+          className="flex min-w-0 flex-1 flex-col"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: launched ? 1 : 0 }}
+          transition={{ duration: 0.45, ease: appleEase, delay: launched ? 0.08 : 0 }}
+        >
+          <motion.header
+            initial={{ opacity: 0, y: -10 }}
+            animate={launched ? { opacity: 1, y: 0 } : { opacity: 0, y: -10 }}
+            transition={{ duration: 0.5, ease: appleEase, delay: launched ? 0.06 : 0 }}
+            className="flex h-[52px] items-center justify-between border-b border-border/80 px-6"
+          >
+            <div className="inline-flex h-7 items-center gap-2 overflow-hidden rounded-full border border-border/80 bg-muted/40 px-2.5">
               <span className={cn("h-1.5 w-1.5 rounded-full", statusDot, monitoring && !paused && "animate-pulseDot")} />
-              <span className="text-[12px] font-medium text-foreground">{statusLabel}</span>
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.span
+                  key={statusLabel}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.22, ease: appleEase }}
+                  className="text-[12px] font-medium text-foreground"
+                >
+                  {statusLabel}
+                </motion.span>
+              </AnimatePresence>
             </div>
             <div className="flex items-center gap-1.5">
               <DropdownMenu>
@@ -185,17 +231,28 @@ export function AppLayout() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button size="icon" variant="ghost" onClick={() => void toggleTheme()}>
-                    {theme === "light" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                    <AnimatePresence mode="wait" initial={false}>
+                      <motion.span
+                        key={theme}
+                        initial={{ opacity: 0, rotate: -50, scale: 0.6 }}
+                        animate={{ opacity: 1, rotate: 0, scale: 1 }}
+                        exit={{ opacity: 0, rotate: 50, scale: 0.6 }}
+                        transition={{ duration: 0.28, ease: appleEase }}
+                        className="inline-flex"
+                      >
+                        {theme === "light" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                      </motion.span>
+                    </AnimatePresence>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>{theme === "dark" ? "Switch to light" : "Switch to dark"}</TooltipContent>
               </Tooltip>
             </div>
-          </header>
+          </motion.header>
           <main className="scrollbar-thin min-h-0 flex-1 overflow-auto p-7">
-            <Outlet />
+            <PageTransition />
           </main>
-        </div>
+        </motion.div>
       </div>
       <OnboardingDialog />
       <Dialog open={customMuteOpen} onOpenChange={setCustomMuteOpen}>
