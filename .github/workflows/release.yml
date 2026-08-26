@@ -112,6 +112,10 @@ jobs:
           path: dist
           merge-multiple: true
 
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum * > SHA256SUMS.txt
+
       - name: Publish release
         uses: softprops/action-gh-release@v3
         with:
@@ -122,6 +126,12 @@ jobs:
           files: dist/*
           body: |
             Desktop builds of PingPulse for this tag.
+
+            **Upgrading from v1.x:** install this build by hand. In-app update only works after you are already on a release that contains the updater.
+
+            Verify downloads against `SHA256SUMS.txt` in this release.
+
+            Builds are **not code-signed**. Windows SmartScreen and macOS Gatekeeper may warn; that is expected until a paid signing certificate / Apple notarization is in place.
 
             ### Windows
             Download `PingPulse-${{ github.ref_name }}-windows-amd64.zip`, extract it, and run `PingPulse.exe`.

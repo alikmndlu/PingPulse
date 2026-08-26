@@ -72,11 +72,12 @@ Most “uptime” tools assume a server, an account, and a monthly invoice. Ping
 - Maintenance page: schedule windows with scope and suppress options
 - History with filters: target, status, date range, search
 - JSON / CSV import and export (including group names and probe fields)
+- SQLite backup / restore from Settings, plus Open data folder and Open log
 
 **Operations**
 - Dark / light theme
 - Start on boot, start monitoring automatically, minimize to tray
-- Global mute (1 hour) and per-target mute
+- Global mute (1 hour, 8 hours, until tomorrow morning, or a custom time) and per-target mute
 - In-app updates from GitHub Releases
 - Structured JSON logs with secret redaction
 
@@ -196,6 +197,20 @@ Or strip the download quarantine and launch from Terminal:
 xattr -cr ~/Downloads/PingPulse.app
 open ~/Downloads/PingPulse.app
 ```
+
+### Verify a packaged build
+
+Do this once with a GitHub Release asset, not `wails dev`. That is where long-lived bugs show up.
+
+1. Extract and launch the app
+2. Enable **Start application on boot**
+3. Confirm the tray icon, then hide the window
+4. Keep or add an ICMP target
+5. Notifications → Telegram → **Send test**
+6. Header **Quiet** → a short custom time, then unmute
+7. Settings → **Check for updates** (install only works on a packaged build)
+
+If you are coming from **v1.x**, install this build manually first. After that, in-app updates work.
 
 ### Develop from source
 
@@ -330,7 +345,7 @@ Nothing lives in env files. Everything is in the user data directory:
 
 | File | Purpose |
 | --- | --- |
-| `pingpulse.db` | SQLite, WAL, `foreign_keys=ON`, `busy_timeout=5000` |
+| `pingpulse.db` | SQLite, WAL, `foreign_keys=ON`, `busy_timeout=5000`. **Settings → Data and backup** exports a snapshot (includes Telegram / SMS keys). Restore overwrites this file and quits the app. |
 | `pingpulse.log` | JSON logs, mode `0600`, secrets redacted |
 
 Migrations are versioned SQL under `internal/database/migrations` and applied on startup.
@@ -339,9 +354,9 @@ Migrations are versioned SQL under `internal/database/migrations` and applied on
 | --- | --- |
 | `targets` | Probes, last status, consecutive counters, group, mute, HTTP/TCP fields |
 | `target_groups` | Named color groups |
-| `ping_results` | Every check; pruned to the latest **2000 rows per target** |
+| `ping_results` | Every check; pruned by **history retention** (7 / 30 / 90 days) |
 | `events` | Offline / recovery / latency / timeout |
-| `incidents` | Open / resolved outages with duration and failure count |
+| `incidents` | Open / resolved outages with duration and failure count (not pruned with ping history) |
 | `maintenance_windows` | Scheduled scopes (all / group / target); suppress checks and/or alerts |
 | `notification_configs` | Provider credentials and templates |
 | `notification_cooldowns` | Last send per target + kind |
@@ -358,7 +373,9 @@ Settings → **Check for updates** calls the public GitHub Releases API for [`al
 - Picks `windows-amd64.zip`, `linux-amd64.tar.gz`, or `darwin-universal.tar.gz`
 - Replaces the running binary (or `.app` on macOS) and restarts
 
-`wails dev` can *check*, but will not *install* — the process is a throwaway build. The first release that contains the updater must be installed by hand; later versions can update themselves.
+`wails dev` can *check*, but will not *install* — the process is a throwaway build. **If you are on v1.x (or any build without the updater), install the newest GitHub Release by hand once.** After that, later versions can update themselves.
+
+Each release also attaches `SHA256SUMS.txt`. Builds are not Authenticode-signed or Apple-notarized yet; SmartScreen and Gatekeeper warnings are expected.
 
 Release CI stamps the version into the binary:
 
