@@ -13,6 +13,7 @@ body:
     attributes:
       label: PingPulse version
       options:
+        - "2.1.2"
         - "2.1.1"
         - "2.0.0"
         - Development (`wails dev`)

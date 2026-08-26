@@ -157,8 +157,8 @@ Keep these three in sync when you bump the product version:
 
 ```bash
 git push origin main
-git tag v2.1.1
-git push origin v2.1.1
+git tag v2.1.2
+git push origin v2.1.2
 ```
 
 A tag matching `v*` runs the Release workflow: Windows setup, macOS DMG, Linux `.deb`/`.rpm`, updater archives, and `SHA256SUMS.txt`.

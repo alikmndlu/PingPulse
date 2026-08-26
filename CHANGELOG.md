@@ -4,6 +4,19 @@ All notable changes to PingPulse are documented here.
 
 ## Unreleased
 
+## 2.1.2 — 2026-08-26
+
+### App
+
+- In-app **Help** tour covering probes, dashboard, incidents, SLA, maintenance, alerts, backup, and updates. Motion respects reduced-motion.
+- First-run welcome can open the guide instead of skipping.
+- The rest of the desktop UI matches that Help language: page kickers, metric cards, fleet pulse, and quieter empty states.
+- Page changes use overlapping iOS-style motion without delaying Wails queries. Revisits show cached data immediately; first loads use skeleton placeholders.
+
+### Internals
+
+- Wails models map `time.Time` to string so `wails dev` binding generation does not stall.
+
 ## 2.1.1 — 2026-08-26
 
 Installable builds for every desktop OS, in-app updates that respect those installs, and the operational extras that landed after 2.0.0.
