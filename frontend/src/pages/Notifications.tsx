@@ -1,15 +1,27 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Monitor, Send, Smartphone, Webhook } from "lucide-react";
+import { Page, PageHeader, ToggleRow } from "@/components/app/Page";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/services/api";
 import type { NotificationConfig, Settings } from "@/types";
 import { toast } from "sonner";
 import { wailsError } from "@/lib/utils";
+
+type ProviderId = "discord" | "slack" | "teams" | "telegram" | "sms" | "webhook";
+
+type ChannelDraft = {
+  cfg: NotificationConfig;
+  secret: string;
+  headers: string;
+};
+
+const PLACEHOLDERS = "{{name}} {{host}} {{status}} {{kind}} {{failures}} {{latency}} {{lastSuccess}} {{time}}";
 
 const emptyConfig = (provider: string): NotificationConfig => ({
   id: provider,
@@ -25,49 +37,49 @@ const emptyConfig = (provider: string): NotificationConfig => ({
   bodyTemplate: "",
 });
 
+function emptyDraft(provider: string): ChannelDraft {
+  return { cfg: emptyConfig(provider), secret: "", headers: "{}" };
+}
+
+function fromConfig(cfg: NotificationConfig): ChannelDraft {
+  return {
+    cfg,
+    secret: "",
+    headers: JSON.stringify(cfg.customHeaders ?? {}, null, 2),
+  };
+}
+
 export function NotificationsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
-  const [sms, setSms] = useState<NotificationConfig>(emptyConfig("sms"));
-  const [webhook, setWebhook] = useState<NotificationConfig>(emptyConfig("webhook"));
-  const [telegram, setTelegram] = useState<NotificationConfig>(emptyConfig("telegram"));
-  const [discord, setDiscord] = useState<NotificationConfig>(emptyConfig("discord"));
-  const [slack, setSlack] = useState<NotificationConfig>(emptyConfig("slack"));
-  const [teams, setTeams] = useState<NotificationConfig>(emptyConfig("teams"));
-  const [smsKey, setSmsKey] = useState("");
-  const [webhookKey, setWebhookKey] = useState("");
-  const [telegramKey, setTelegramKey] = useState("");
-  const [discordKey, setDiscordKey] = useState("");
-  const [slackKey, setSlackKey] = useState("");
-  const [teamsKey, setTeamsKey] = useState("");
-  const [smsHeaders, setSmsHeaders] = useState("{}");
-  const [webhookHeaders, setWebhookHeaders] = useState("{}");
-  const [discordHeaders, setDiscordHeaders] = useState("{}");
-  const [slackHeaders, setSlackHeaders] = useState("{}");
-  const [teamsHeaders, setTeamsHeaders] = useState("{}");
+  const [channels, setChannels] = useState<Record<ProviderId, ChannelDraft>>({
+    discord: emptyDraft("discord"),
+    slack: emptyDraft("slack"),
+    teams: emptyDraft("teams"),
+    telegram: emptyDraft("telegram"),
+    sms: emptyDraft("sms"),
+    webhook: emptyDraft("webhook"),
+  });
 
   async function load() {
     try {
-      const [s, smsCfg, hookCfg, tgCfg, dcCfg, slCfg, tmCfg] = await Promise.all([
+      const [s, discord, slack, teams, telegram, sms, webhook] = await Promise.all([
         api.getSettings(),
-        api.getNotificationConfig("sms"),
-        api.getNotificationConfig("webhook"),
-        api.getNotificationConfig("telegram"),
         api.getNotificationConfig("discord"),
         api.getNotificationConfig("slack"),
         api.getNotificationConfig("teams"),
+        api.getNotificationConfig("telegram"),
+        api.getNotificationConfig("sms"),
+        api.getNotificationConfig("webhook"),
       ]);
       setSettings(s);
-      setSms(smsCfg);
-      setWebhook(hookCfg);
-      setTelegram(tgCfg);
-      setDiscord(dcCfg);
-      setSlack(slCfg);
-      setTeams(tmCfg);
-      setSmsHeaders(JSON.stringify(smsCfg.customHeaders ?? {}, null, 2));
-      setWebhookHeaders(JSON.stringify(hookCfg.customHeaders ?? {}, null, 2));
-      setDiscordHeaders(JSON.stringify(dcCfg.customHeaders ?? {}, null, 2));
-      setSlackHeaders(JSON.stringify(slCfg.customHeaders ?? {}, null, 2));
-      setTeamsHeaders(JSON.stringify(tmCfg.customHeaders ?? {}, null, 2));
+      setChannels({
+        discord: fromConfig(discord),
+        slack: fromConfig(slack),
+        teams: fromConfig(teams),
+        telegram: fromConfig(telegram),
+        sms: fromConfig(sms),
+        webhook: fromConfig(webhook),
+      });
     } catch (err) {
       toast.error(wailsError(err));
     }
@@ -80,282 +92,351 @@ export function NotificationsPage() {
   async function saveSettings(next: Settings) {
     try {
       setSettings(await api.updateSettings(next));
-      toast.success("Notification rules saved");
     } catch (err) {
       toast.error(wailsError(err));
     }
   }
 
-  async function saveProvider(cfg: NotificationConfig, key: string, headersRaw: string) {
+  function patchChannel(id: ProviderId, patch: Partial<ChannelDraft> | ((current: ChannelDraft) => ChannelDraft)) {
+    setChannels((prev) => {
+      const next = typeof patch === "function" ? patch(prev[id]) : { ...prev[id], ...patch };
+      return { ...prev, [id]: next };
+    });
+  }
+
+  function patchCfg(id: ProviderId, patch: Partial<NotificationConfig>) {
+    patchChannel(id, (current) => ({ ...current, cfg: { ...current.cfg, ...patch } }));
+  }
+
+  async function saveChannel(id: ProviderId) {
+    const draft = channels[id];
     try {
-      const headers = JSON.parse(headersRaw || "{}") as Record<string, string>;
-      const saved = await api.updateNotificationConfig({ ...cfg, apiKey: key, customHeaders: headers });
-      if (cfg.provider === "sms") setSms(saved);
-      else if (cfg.provider === "telegram") setTelegram(saved);
-      else if (cfg.provider === "discord") setDiscord(saved);
-      else if (cfg.provider === "slack") setSlack(saved);
-      else if (cfg.provider === "teams") setTeams(saved);
-      else setWebhook(saved);
-      toast.success(`${cfg.provider.toUpperCase()} settings saved`);
+      const headers = JSON.parse(draft.headers || "{}") as Record<string, string>;
+      const saved = await api.updateNotificationConfig({ ...draft.cfg, apiKey: draft.secret, customHeaders: headers });
+      patchChannel(id, fromConfig(saved));
+      toast.success(`${labelFor(id)} saved`);
     } catch (err) {
       toast.error(wailsError(err));
     }
   }
 
-  async function test(provider: string) {
+  async function testChannel(id: ProviderId) {
     try {
-      await api.testNotification(provider);
-      toast.success(`Test ${provider} notification sent`);
+      await api.testNotification(id);
+      toast.success(`Test ${labelFor(id)} notification sent`);
     } catch (err) {
       toast.error(wailsError(err));
     }
   }
 
-  if (!settings) return null;
+  if (!settings) {
+    return (
+      <Page>
+        <p className="text-sm text-muted-foreground">Loading notifications…</p>
+      </Page>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Notifications</h1>
-        <p className="text-sm text-muted-foreground">Choose when PingPulse should speak up, and how.</p>
+    <Page>
+      <PageHeader title="Notifications" description="Choose when PingPulse should alert you, then configure each channel on its own." />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>When to alert</CardTitle>
+          <CardDescription>These rules apply to every enabled channel.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-2">
+          <ToggleRow label="Target offline" description="After consecutive failures pass the threshold." checked={settings.notifyOnOffline} onChange={(v) => void saveSettings({ ...settings, notifyOnOffline: v })} />
+          <ToggleRow label="Target recovery" description="When a host comes back online." checked={settings.notifyOnRecovery} onChange={(v) => void saveSettings({ ...settings, notifyOnRecovery: v })} />
+          <ToggleRow label="High latency" description="When a successful check is slower than the threshold." checked={settings.notifyOnHighLatency} onChange={(v) => void saveSettings({ ...settings, notifyOnHighLatency: v })} />
+          <ToggleRow label="Ping timeout" description="When a probe times out." checked={settings.notifyOnTimeout} onChange={(v) => void saveSettings({ ...settings, notifyOnTimeout: v })} />
+          <NumberField label="High latency threshold (ms)" value={settings.highLatencyThresholdMs} onCommit={(highLatencyThresholdMs) => void saveSettings({ ...settings, highLatencyThresholdMs })} />
+          <NumberField label="Cooldown (seconds)" value={settings.notificationCooldownSeconds} onCommit={(notificationCooldownSeconds) => void saveSettings({ ...settings, notificationCooldownSeconds })} />
+        </CardContent>
+      </Card>
+
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight">Channels</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Each channel has its own credentials and message. Secrets stay on this machine and are never shown again after save.</p>
+        </div>
+
+        <ChannelCard
+          title="Desktop"
+          description="Native OS notifications on this computer. No extra setup."
+          icon={Monitor}
+          enabled={settings.desktopNotificationEnabled}
+          onEnabledChange={(v) => void saveSettings({ ...settings, desktopNotificationEnabled: v })}
+        />
+
+        <ChannelCard
+          title="Telegram"
+          description="Use a BotFather bot. Send it a message once, then paste the chat ID here."
+          icon={Send}
+          enabled={settings.telegramEnabled}
+          onEnabledChange={(v) => void saveSettings({ ...settings, telegramEnabled: v })}
+          onSave={() => void saveChannel("telegram")}
+          onTest={() => void testChannel("telegram")}
+        >
+          <Field label="Bot token">
+            <Input
+              type="password"
+              autoComplete="new-password"
+              placeholder={channels.telegram.cfg.apiKeySet ? "••••••••  (set, hidden)" : "123456:ABC-token-from-BotFather"}
+              value={channels.telegram.secret}
+              onChange={(e) => patchChannel("telegram", { secret: e.target.value })}
+            />
+          </Field>
+          <Field label="Chat ID" hint="Personal chats are numeric. Groups often start with -100.">
+            <Input value={channels.telegram.cfg.recipient} placeholder="123456789 or -1001234567890" onChange={(e) => patchCfg("telegram", { recipient: e.target.value })} />
+          </Field>
+          <Advanced>
+            <TemplateField value={channels.telegram.cfg.bodyTemplate} onChange={(bodyTemplate) => patchCfg("telegram", { bodyTemplate })} />
+          </Advanced>
+        </ChannelCard>
+
+        <ChannelCard
+          title="Melipayamak SMS"
+          description="Sends JSON {from, to, text} to the Melipayamak console API. Keep {{apiKey}} in the URL."
+          icon={Smartphone}
+          enabled={settings.smsEnabled}
+          onEnabledChange={(v) => void saveSettings({ ...settings, smsEnabled: v })}
+          onSave={() => void saveChannel("sms")}
+          onTest={() => void testChannel("sms")}
+        >
+          <Field label="API key">
+            <Input
+              type="password"
+              autoComplete="new-password"
+              placeholder={channels.sms.cfg.apiKeySet ? "••••••••  (set, hidden)" : "Melipayamak token"}
+              value={channels.sms.secret}
+              onChange={(e) => patchChannel("sms", { secret: e.target.value })}
+            />
+          </Field>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Sender (from)">
+              <Input value={channels.sms.cfg.sender} onChange={(e) => patchCfg("sms", { sender: e.target.value })} />
+            </Field>
+            <Field label="Recipient (to)">
+              <Input value={channels.sms.cfg.recipient} onChange={(e) => patchCfg("sms", { recipient: e.target.value })} />
+            </Field>
+          </div>
+          <Advanced>
+            <Field label="API URL">
+              <Input value={channels.sms.cfg.apiUrl} placeholder="https://console.melipayamak.com/api/send/simple/{{apiKey}}" onChange={(e) => patchCfg("sms", { apiUrl: e.target.value })} />
+            </Field>
+            <TemplateField value={channels.sms.cfg.bodyTemplate} onChange={(bodyTemplate) => patchCfg("sms", { bodyTemplate })} />
+            <Field label="Custom headers (JSON)">
+              <Textarea rows={4} value={channels.sms.headers} onChange={(e) => patchChannel("sms", { headers: e.target.value })} />
+            </Field>
+          </Advanced>
+        </ChannelCard>
+
+        <ChannelCard
+          title="Discord"
+          description="Post alerts to a Discord channel with an incoming webhook."
+          enabled={Boolean(settings.discordEnabled)}
+          onEnabledChange={(v) => void saveSettings({ ...settings, discordEnabled: v })}
+          onSave={() => void saveChannel("discord")}
+          onTest={() => void testChannel("discord")}
+        >
+          <Field label="Webhook URL">
+            <Input value={channels.discord.cfg.apiUrl} placeholder="https://discord.com/api/webhooks/..." onChange={(e) => patchCfg("discord", { apiUrl: e.target.value })} />
+          </Field>
+          <Advanced>
+            <TemplateField value={channels.discord.cfg.bodyTemplate} onChange={(bodyTemplate) => patchCfg("discord", { bodyTemplate })} hint="JSON body Discord expects, usually {&quot;content&quot;:&quot;...&quot;}." />
+          </Advanced>
+        </ChannelCard>
+
+        <ChannelCard
+          title="Slack"
+          description="Send alerts to a Slack channel with an incoming webhook."
+          enabled={Boolean(settings.slackEnabled)}
+          onEnabledChange={(v) => void saveSettings({ ...settings, slackEnabled: v })}
+          onSave={() => void saveChannel("slack")}
+          onTest={() => void testChannel("slack")}
+        >
+          <Field label="Webhook URL">
+            <Input value={channels.slack.cfg.apiUrl} placeholder="https://hooks.slack.com/services/..." onChange={(e) => patchCfg("slack", { apiUrl: e.target.value })} />
+          </Field>
+          <Advanced>
+            <TemplateField value={channels.slack.cfg.bodyTemplate} onChange={(bodyTemplate) => patchCfg("slack", { bodyTemplate })} hint="JSON body Slack expects, usually {&quot;text&quot;:&quot;...&quot;}." />
+          </Advanced>
+        </ChannelCard>
+
+        <ChannelCard
+          title="Microsoft Teams"
+          description="Deliver alerts to a Teams channel with an incoming webhook."
+          enabled={Boolean(settings.teamsEnabled)}
+          onEnabledChange={(v) => void saveSettings({ ...settings, teamsEnabled: v })}
+          onSave={() => void saveChannel("teams")}
+          onTest={() => void testChannel("teams")}
+        >
+          <Field label="Webhook URL">
+            <Input value={channels.teams.cfg.apiUrl} placeholder="https://outlook.office.com/webhook/..." onChange={(e) => patchCfg("teams", { apiUrl: e.target.value })} />
+          </Field>
+          <Advanced>
+            <TemplateField value={channels.teams.cfg.bodyTemplate} onChange={(bodyTemplate) => patchCfg("teams", { bodyTemplate })} hint="JSON body Teams expects, usually {&quot;text&quot;:&quot;...&quot;}." />
+          </Advanced>
+        </ChannelCard>
+
+        <ChannelCard
+          title="Webhook"
+          description="Generic HTTP integration for anything else. Leave the API key blank to keep the stored secret."
+          icon={Webhook}
+          enabled={settings.webhookEnabled}
+          onEnabledChange={(v) => void saveSettings({ ...settings, webhookEnabled: v })}
+          onSave={() => void saveChannel("webhook")}
+          onTest={() => void testChannel("webhook")}
+        >
+          <Field label="Endpoint URL">
+            <Input value={channels.webhook.cfg.apiUrl} placeholder="https://example.com/hooks/pingpulse" onChange={(e) => patchCfg("webhook", { apiUrl: e.target.value })} />
+          </Field>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="HTTP method">
+              <Input value={channels.webhook.cfg.httpMethod} onChange={(e) => patchCfg("webhook", { httpMethod: e.target.value })} />
+            </Field>
+            <Field label="API key">
+              <Input
+                type="password"
+                autoComplete="new-password"
+                placeholder={channels.webhook.cfg.apiKeySet ? "••••••••  (set, hidden)" : "Optional"}
+                value={channels.webhook.secret}
+                onChange={(e) => patchChannel("webhook", { secret: e.target.value })}
+              />
+            </Field>
+          </div>
+          <TemplateField value={channels.webhook.cfg.bodyTemplate} onChange={(bodyTemplate) => patchCfg("webhook", { bodyTemplate })} hint="Request body. JSON is typical." />
+          <Advanced>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Sender header">
+                <Input value={channels.webhook.cfg.sender} onChange={(e) => patchCfg("webhook", { sender: e.target.value })} />
+              </Field>
+              <Field label="Recipient">
+                <Input value={channels.webhook.cfg.recipient} onChange={(e) => patchCfg("webhook", { recipient: e.target.value })} />
+              </Field>
+            </div>
+            <Field label="Custom headers (JSON)">
+              <Textarea rows={4} value={channels.webhook.headers} onChange={(e) => patchChannel("webhook", { headers: e.target.value })} />
+            </Field>
+          </Advanced>
+        </ChannelCard>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Channels</CardTitle>
-          <CardDescription>Enable providers independently. Secrets are stored locally and never shown again.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Toggle label="Discord" checked={Boolean(settings.discordEnabled)} onChange={(v) => void saveSettings({ ...settings, discordEnabled: v })} />
-          <Toggle label="Slack" checked={Boolean(settings.slackEnabled)} onChange={(v) => void saveSettings({ ...settings, slackEnabled: v })} />
-          <Toggle label="Microsoft Teams" checked={Boolean(settings.teamsEnabled)} onChange={(v) => void saveSettings({ ...settings, teamsEnabled: v })} />
-          <Toggle label="Telegram" checked={settings.telegramEnabled} onChange={(v) => void saveSettings({ ...settings, telegramEnabled: v })} />
-          <Toggle label="SMS (Melipayamak)" checked={settings.smsEnabled} onChange={(v) => void saveSettings({ ...settings, smsEnabled: v })} />
-          <Toggle label="Desktop" checked={settings.desktopNotificationEnabled} onChange={(v) => void saveSettings({ ...settings, desktopNotificationEnabled: v })} />
-          <Toggle label="Webhook" checked={settings.webhookEnabled} onChange={(v) => void saveSettings({ ...settings, webhookEnabled: v })} />
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Rules</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2">
-          <Toggle label="Target offline" checked={settings.notifyOnOffline} onChange={(v) => void saveSettings({ ...settings, notifyOnOffline: v })} />
-          <Toggle label="Target recovery" checked={settings.notifyOnRecovery} onChange={(v) => void saveSettings({ ...settings, notifyOnRecovery: v })} />
-          <Toggle label="High latency" checked={settings.notifyOnHighLatency} onChange={(v) => void saveSettings({ ...settings, notifyOnHighLatency: v })} />
-          <Toggle label="Ping timeout" checked={settings.notifyOnTimeout} onChange={(v) => void saveSettings({ ...settings, notifyOnTimeout: v })} />
-          <Field label="High latency threshold (ms)" type="number" value={settings.highLatencyThresholdMs} onChange={(v) => void saveSettings({ ...settings, highLatencyThresholdMs: Number(v) })} />
-          <Field label="Cooldown (seconds)" type="number" value={settings.notificationCooldownSeconds} onChange={(v) => void saveSettings({ ...settings, notificationCooldownSeconds: Number(v) })} />
-        </CardContent>
-      </Card>
-      <Tabs defaultValue="discord">
-        <TabsList className="flex h-auto flex-wrap gap-1">
-          <TabsTrigger value="discord">Discord</TabsTrigger>
-          <TabsTrigger value="slack">Slack</TabsTrigger>
-          <TabsTrigger value="teams">Teams</TabsTrigger>
-          <TabsTrigger value="telegram">Telegram</TabsTrigger>
-          <TabsTrigger value="sms">Melipayamak SMS</TabsTrigger>
-          <TabsTrigger value="webhook">Webhook</TabsTrigger>
-        </TabsList>
-        <TabsContent value="discord">
-          <ProviderForm
-            title="Discord webhook"
-            description="Paste a channel webhook URL from Discord Server Settings → Integrations → Webhooks."
-            cfg={discord}
-            setCfg={setDiscord}
-            apiKey={discordKey}
-            setApiKey={setDiscordKey}
-            headers={discordHeaders}
-            setHeaders={setDiscordHeaders}
-            urlPlaceholder="https://discord.com/api/webhooks/..."
-            onSave={() => saveProvider(discord, discordKey, discordHeaders)}
-            onTest={() => test("discord")}
-          />
-        </TabsContent>
-        <TabsContent value="slack">
-          <ProviderForm
-            title="Slack incoming webhook"
-            description="Create an Incoming Webhook in Slack and paste the URL here."
-            cfg={slack}
-            setCfg={setSlack}
-            apiKey={slackKey}
-            setApiKey={setSlackKey}
-            headers={slackHeaders}
-            setHeaders={setSlackHeaders}
-            urlPlaceholder="https://hooks.slack.com/services/..."
-            onSave={() => saveProvider(slack, slackKey, slackHeaders)}
-            onTest={() => test("slack")}
-          />
-        </TabsContent>
-        <TabsContent value="teams">
-          <ProviderForm
-            title="Microsoft Teams webhook"
-            description="Use a Teams Incoming Webhook URL for the channel you want alerts in."
-            cfg={teams}
-            setCfg={setTeams}
-            apiKey={teamsKey}
-            setApiKey={setTeamsKey}
-            headers={teamsHeaders}
-            setHeaders={setTeamsHeaders}
-            urlPlaceholder="https://outlook.office.com/webhook/..."
-            onSave={() => saveProvider(teams, teamsKey, teamsHeaders)}
-            onTest={() => test("teams")}
-          />
-        </TabsContent>
-        <TabsContent value="telegram">
-          <Card>
-            <CardHeader>
-              <CardTitle>Telegram bot</CardTitle>
-              <CardDescription>
-                Create a bot with BotFather, paste the token here, then send the bot a message and put that chat ID below. For a group, add the bot and use the group chat ID (often starts with -100).
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-3">
-              <div className="grid gap-2">
-                <Label>Bot token</Label>
-                <Input
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder={telegram.apiKeySet ? "••••••••  (set, hidden)" : "123456:ABC-token-from-BotFather"}
-                  value={telegramKey}
-                  onChange={(e) => setTelegramKey(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label>Chat ID</Label>
-                <Input value={telegram.recipient} placeholder="123456789 or -1001234567890" onChange={(e) => setTelegram({ ...telegram, recipient: e.target.value })} />
-              </div>
-              <div className="grid gap-2">
-                <Label>Message template</Label>
-                <Textarea rows={8} value={telegram.bodyTemplate} onChange={(e) => setTelegram({ ...telegram, bodyTemplate: e.target.value })} />
-                <p className="text-xs text-muted-foreground">Placeholders: {"{{name}} {{host}} {{status}} {{failures}} {{latency}} {{lastSuccess}} {{time}}"}</p>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => void test("telegram")}>
-                  Send test
-                </Button>
-                <Button onClick={() => void saveProvider(telegram, telegramKey, "{}")}>Save Telegram</Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="sms">
-          <ProviderForm
-            title="Melipayamak SMS"
-            description="When SMS is enabled, PingPulse POSTs JSON {from, to, text} to the Melipayamak console API. Store the token as the API key and keep {{apiKey}} in the URL."
-            cfg={sms}
-            setCfg={setSms}
-            apiKey={smsKey}
-            setApiKey={setSmsKey}
-            headers={smsHeaders}
-            setHeaders={setSmsHeaders}
-            urlPlaceholder="https://console.melipayamak.com/api/send/simple/{{apiKey}}"
-            senderLabel="Sender (from)"
-            recipientLabel="Recipient (to)"
-            onSave={() => saveProvider(sms, smsKey, smsHeaders)}
-            onTest={() => test("sms")}
-          />
-        </TabsContent>
-        <TabsContent value="webhook">
-          <ProviderForm
-            title="Webhook provider"
-            description="Generic HTTP integration. Leave the API key blank to keep the stored secret."
-            cfg={webhook}
-            setCfg={setWebhook}
-            apiKey={webhookKey}
-            setApiKey={setWebhookKey}
-            headers={webhookHeaders}
-            setHeaders={setWebhookHeaders}
-            onSave={() => saveProvider(webhook, webhookKey, webhookHeaders)}
-            onTest={() => test("webhook")}
-          />
-        </TabsContent>
-      </Tabs>
-    </div>
+    </Page>
   );
 }
 
-function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
-      <span className="text-sm">{label}</span>
-      <Switch checked={checked} onCheckedChange={onChange} />
-    </div>
-  );
+function labelFor(id: ProviderId) {
+  const labels: Record<ProviderId, string> = {
+    discord: "Discord",
+    slack: "Slack",
+    teams: "Teams",
+    telegram: "Telegram",
+    sms: "SMS",
+    webhook: "Webhook",
+  };
+  return labels[id];
 }
 
-function Field({ label, value, type, onChange }: { label: string; value: string | number; type?: string; onChange: (v: string) => void }) {
-  return (
-    <div className="grid gap-2">
-      <Label>{label}</Label>
-      <Input type={type} value={value} onChange={(e) => onChange(e.target.value)} />
-    </div>
-  );
-}
-
-function ProviderForm({
+function ChannelCard({
   title,
   description,
-  cfg,
-  setCfg,
-  apiKey,
-  setApiKey,
-  headers,
-  setHeaders,
-  urlPlaceholder,
-  senderLabel = "Sender",
-  recipientLabel = "Recipient",
+  icon: Icon,
+  enabled,
+  onEnabledChange,
   onSave,
   onTest,
+  children,
 }: {
   title: string;
   description: string;
-  cfg: NotificationConfig;
-  setCfg: (c: NotificationConfig) => void;
-  apiKey: string;
-  setApiKey: (v: string) => void;
-  headers: string;
-  setHeaders: (v: string) => void;
-  urlPlaceholder?: string;
-  senderLabel?: string;
-  recipientLabel?: string;
-  onSave: () => void;
-  onTest: () => void;
+  icon?: typeof Monitor;
+  enabled: boolean;
+  onEnabledChange: (v: boolean) => void;
+  onSave?: () => void;
+  onTest?: () => void;
+  children?: ReactNode;
 }) {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+      <CardHeader className={`flex-row items-start justify-between gap-4 space-y-0 ${enabled && children ? "" : "pb-5"}`}>
+        <div className="min-w-0 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            {Icon ? <Icon className="h-3.5 w-3.5 text-muted-foreground" /> : null}
+            <CardTitle>{title}</CardTitle>
+            <Badge variant={enabled ? "success" : "muted"}>{enabled ? "On" : "Off"}</Badge>
+          </div>
+          <CardDescription>{description}</CardDescription>
+        </div>
+        <Switch checked={enabled} onCheckedChange={onEnabledChange} />
       </CardHeader>
-      <CardContent className="grid gap-3">
-        <div className="grid gap-2">
-          <Label>API URL</Label>
-          <Input value={cfg.apiUrl} placeholder={urlPlaceholder} onChange={(e) => setCfg({ ...cfg, apiUrl: e.target.value })} />
-        </div>
-        <div className="grid gap-2">
-          <Label>API key</Label>
-          <Input type="password" autoComplete="new-password" placeholder={cfg.apiKeySet ? "••••••••  (set, hidden)" : "Enter API key"} value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label={senderLabel} value={cfg.sender} onChange={(sender) => setCfg({ ...cfg, sender })} />
-          <Field label={recipientLabel} value={cfg.recipient} onChange={(recipient) => setCfg({ ...cfg, recipient })} />
-        </div>
-        <Field label="HTTP method" value={cfg.httpMethod} onChange={(httpMethod) => setCfg({ ...cfg, httpMethod })} />
-        <div className="grid gap-2">
-          <Label>Custom headers (JSON)</Label>
-          <Textarea value={headers} onChange={(e) => setHeaders(e.target.value)} />
-        </div>
-        <div className="grid gap-2">
-          <Label>Body template</Label>
-          <Textarea rows={8} value={cfg.bodyTemplate} onChange={(e) => setCfg({ ...cfg, bodyTemplate: e.target.value })} />
-        </div>
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onTest}>
-            Send test
-          </Button>
-          <Button onClick={onSave}>Save provider</Button>
-        </div>
-      </CardContent>
+      {enabled && children ? (
+        <CardContent className="grid gap-4">
+          {children}
+          {onSave || onTest ? (
+            <div className="flex justify-end gap-2">
+              {onTest ? (
+                <Button variant="outline" onClick={onTest}>
+                  Send test
+                </Button>
+              ) : null}
+              {onSave ? <Button onClick={onSave}>Save</Button> : null}
+            </div>
+          ) : null}
+        </CardContent>
+      ) : null}
     </Card>
+  );
+}
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  return (
+    <div className="grid gap-2">
+      <Label>{label}</Label>
+      {children}
+      {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+    </div>
+  );
+}
+
+function TemplateField({ value, onChange, hint }: { value: string; onChange: (v: string) => void; hint?: string }) {
+  return (
+    <Field label="Message template" hint={hint ? `${hint} Placeholders: ${PLACEHOLDERS}` : `Placeholders: ${PLACEHOLDERS}`}>
+      <Textarea rows={7} value={value} onChange={(e) => onChange(e.target.value)} className="font-mono text-xs" />
+    </Field>
+  );
+}
+
+function Advanced({ children }: { children: ReactNode }) {
+  return (
+    <details className="rounded-xl border border-border/80">
+      <summary className="cursor-pointer list-none px-4 py-2.5 text-sm text-muted-foreground marker:content-none hover:text-foreground [&::-webkit-details-marker]:hidden">
+        Advanced
+      </summary>
+      <div className="grid gap-3 border-t border-border/80 p-4">{children}</div>
+    </details>
+  );
+}
+
+function NumberField({ label, value, onCommit }: { label: string; value: number; onCommit: (v: number) => void }) {
+  const [local, setLocal] = useState(String(value));
+  useEffect(() => {
+    setLocal(String(value));
+  }, [value]);
+
+  return (
+    <Field label={label}>
+      <Input
+        type="number"
+        value={local}
+        onChange={(e) => setLocal(e.target.value)}
+        onBlur={() => {
+          const next = Number(local);
+          if (!Number.isNaN(next) && next !== value) onCommit(next);
+          else setLocal(String(value));
+        }}
+      />
+    </Field>
   );
 }
