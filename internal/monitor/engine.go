@@ -193,7 +193,11 @@ func (e *Engine) checkTarget(ctx context.Context, target domain.Target, settings
 	if _, err := e.results.Insert(ctx, res); err != nil {
 		e.logger.Error("store ping result", "error", err, "targetId", target.ID)
 	}
-	_ = e.results.Prune(ctx, target.ID, 2000)
+	days := 30
+	if s, err := e.settings.Get(ctx); err == nil && s.HistoryRetentionDays > 0 {
+		days = s.HistoryRetentionDays
+	}
+	_ = e.results.PruneOlderThan(ctx, target.ID, days)
 
 	if _, err := e.targets.Update(ctx, target); err != nil {
 		return fmt.Errorf("update target after ping: %w", err)

@@ -5,6 +5,8 @@ import {domain} from '../models';
 
 export function CheckForUpdate():Promise<updater.Info>;
 
+export function CompleteOnboarding(arg1:boolean):Promise<void>;
+
 export function CreateGroup(arg1:string,arg2:string):Promise<domain.TargetGroup>;
 
 export function CreateMaintenanceWindow(arg1:domain.CreateMaintenanceInput):Promise<domain.MaintenanceWindow>;
@@ -17,11 +19,15 @@ export function DeleteMaintenanceWindow(arg1:string):Promise<void>;
 
 export function DeleteTarget(arg1:string):Promise<void>;
 
+export function ExportBackup():Promise<domain.BackupResult>;
+
 export function ExportTargets(arg1:string):Promise<string>;
 
 export function GetAppVersion():Promise<string>;
 
 export function GetDashboardStats():Promise<domain.DashboardStats>;
+
+export function GetDataPaths():Promise<domain.DataPaths>;
 
 export function GetEvents(arg1:domain.EventFilter):Promise<Array<domain.Event>>;
 
@@ -59,11 +65,17 @@ export function MuteNotifications(arg1:number):Promise<domain.Settings>;
 
 export function MuteTarget(arg1:string,arg2:number):Promise<domain.Target>;
 
+export function OpenDataDir():Promise<void>;
+
+export function OpenLogFile():Promise<void>;
+
 export function OpenReleasePage():Promise<void>;
 
 export function PauseAll():Promise<void>;
 
 export function QuitApp():Promise<void>;
+
+export function RestoreBackup():Promise<domain.BackupResult>;
 
 export function SetTargetEnabled(arg1:string,arg2:boolean):Promise<domain.Target>;
 

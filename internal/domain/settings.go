@@ -26,6 +26,8 @@ type Settings struct {
 	Theme                        string `json:"theme"`
 	LogLevel                     string `json:"logLevel"`
 	MutedUntil                   string `json:"mutedUntil"`
+	HistoryRetentionDays         int    `json:"historyRetentionDays"`
+	OnboardingComplete           bool   `json:"onboardingComplete"`
 }
 
 func DefaultSettings() Settings {
@@ -54,6 +56,7 @@ func DefaultSettings() Settings {
 		NotifyOnTimeout:              false,
 		Theme:                        "dark",
 		LogLevel:                     "info",
+		HistoryRetentionDays:         30,
 	}
 }
 
@@ -96,5 +99,22 @@ func (s Settings) Normalized() Settings {
 	if !IsMuted(out.MutedUntil) {
 		out.MutedUntil = ""
 	}
+	switch out.HistoryRetentionDays {
+	case 7, 30, 90:
+	default:
+		out.HistoryRetentionDays = 30
+	}
 	return out
+}
+
+type DataPaths struct {
+	Dir      string `json:"dir"`
+	Database string `json:"database"`
+	Log      string `json:"log"`
+}
+
+type BackupResult struct {
+	Cancelled        bool   `json:"cancelled"`
+	Path             string `json:"path"`
+	RestartRequired  bool   `json:"restartRequired"`
 }

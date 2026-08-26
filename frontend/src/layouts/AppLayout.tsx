@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import { copy } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { formatMuteRemaining, isMuted } from "@/lib/mute";
+import { OnboardingDialog } from "@/components/app/Onboarding";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAppStore } from "@/stores/app";
 import { useWailsEvents } from "@/hooks/useWailsEvents";
@@ -56,6 +60,8 @@ export function AppLayout() {
   const mutedUntil = useAppStore((s) => s.mutedUntil);
   const setMutedUntil = useAppStore((s) => s.setMutedUntil);
   const [, setTick] = useState(0);
+  const [customMuteOpen, setCustomMuteOpen] = useState(false);
+  const [customMuteAt, setCustomMuteAt] = useState("");
   const muted = isMuted(mutedUntil);
 
   useEffect(() => {
@@ -87,14 +93,22 @@ export function AppLayout() {
     }
   }
 
-  async function toggleMute() {
+  async function muteFor(seconds: number, label: string) {
     try {
-      const saved = await api.muteNotifications(muted ? 0 : 3600);
+      const saved = await api.muteNotifications(seconds);
       setMutedUntil(saved.mutedUntil ?? "");
-      toast.success(saved.mutedUntil ? "Alerts quiet for 1 hour" : "Alerts unmuted");
+      toast.success(seconds === 0 ? "Alerts unmuted" : `Alerts quiet ${label}`);
     } catch (err) {
       toast.error(wailsError(err));
     }
+  }
+
+  function secondsUntilTomorrow(hour: number) {
+    const now = new Date();
+    const next = new Date(now);
+    next.setDate(now.getDate() + 1);
+    next.setHours(hour, 0, 0, 0);
+    return Math.max(60, Math.round((next.getTime() - now.getTime()) / 1000));
   }
 
   return (
@@ -147,15 +161,23 @@ export function AppLayout() {
               <span className="text-[12px] font-medium text-foreground">{statusLabel}</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button size="sm" variant={muted ? "secondary" : "ghost"} onClick={() => void toggleMute()}>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant={muted ? "secondary" : "ghost"}>
                     {muted ? <BellOff className="h-3.5 w-3.5" /> : <Bell className="h-3.5 w-3.5" />}
-                    {muted ? formatMuteRemaining(mutedUntil) : "Quiet 1h"}
+                    {muted ? formatMuteRemaining(mutedUntil) : "Quiet"}
                   </Button>
-                </TooltipTrigger>
-                <TooltipContent>{muted ? "Click to unmute SMS, desktop, and webhook alerts" : "Silence all alerts for one hour"}</TooltipContent>
-              </Tooltip>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {muted ? <DropdownMenuItem onClick={() => void muteFor(0, "")}>Unmute alerts</DropdownMenuItem> : null}
+                  <DropdownMenuItem onClick={() => void muteFor(3600, "for 1 hour")}>Quiet 1 hour</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => void muteFor(8 * 3600, "for 8 hours")}>Quiet 8 hours</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => void muteFor(secondsUntilTomorrow(8), "until tomorrow 8:00")}>
+                    Quiet until tomorrow 8:00
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setCustomMuteOpen(true)}>Quiet until…</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button size="sm" variant={monitoring ? "outline" : "default"} onClick={toggleMonitoring}>
                 <Monitor className="h-3.5 w-3.5" />
                 {monitoring ? "Stop" : "Start"}
@@ -175,6 +197,35 @@ export function AppLayout() {
           </main>
         </div>
       </div>
+      <OnboardingDialog />
+      <Dialog open={customMuteOpen} onOpenChange={setCustomMuteOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Quiet until</DialogTitle>
+            <DialogDescription>Alerts stay silent until this local time, then resume automatically.</DialogDescription>
+          </DialogHeader>
+          <Input type="datetime-local" value={customMuteAt} onChange={(e) => setCustomMuteAt(e.target.value)} />
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setCustomMuteOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                const at = new Date(customMuteAt).getTime();
+                const seconds = Math.round((at - Date.now()) / 1000);
+                if (!customMuteAt || Number.isNaN(at) || seconds < 60) {
+                  toast.error("Pick a time at least one minute from now");
+                  return;
+                }
+                setCustomMuteOpen(false);
+                void muteFor(seconds, "until the time you picked");
+              }}
+            >
+              Quiet
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </TooltipProvider>
   );
 }

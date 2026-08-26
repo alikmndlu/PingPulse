@@ -69,29 +69,7 @@ func (a *App) startup(ctx context.Context) {
 		a.logger.Error("open database", "error", err)
 		return
 	}
-	a.db = db
-	a.targets = repository.NewTargetRepository(db)
-	a.results = repository.NewResultRepository(db)
-	a.events = repository.NewEventRepository(db)
-	a.settings = repository.NewSettingsRepository(db)
-	a.notifRepo = repository.NewNotificationRepository(db)
-	a.groups = repository.NewGroupRepository(db)
-	a.maintenance = repository.NewMaintenanceRepository(db)
-	a.incidents = repository.NewIncidentRepository(db)
-
-	a.hub = notification.NewHub(a.settings, a.notifRepo, wailsEmitter{app: a}, a.logger.Logger,
-		notification.NewSMSProvider(a.notifRepo),
-		notification.NewWebhookProvider(a.notifRepo),
-		notification.NewTelegramProvider(a.notifRepo),
-		notification.NewDiscordProvider(a.notifRepo),
-		notification.NewSlackProvider(a.notifRepo),
-		notification.NewTeamsProvider(a.notifRepo),
-		notification.NewDesktopProvider(),
-	)
-	a.engine = monitor.NewEngine(monitor.NewICMPPinger(), a.targets, a.results, a.events, a.settings, a.hub, wailsEmitter{app: a}, a.logger.Logger)
-	a.engine.SetMaintenance(a.maintenance)
-	a.engine.SetIncidents(a.incidents)
-	a.scheduler = scheduler.New(a.targets, a.engine, wailsEmitter{app: a}, a.logger.Logger)
+	a.attachDB(db)
 
 	settings, err := a.settings.Get(ctx)
 	if err == nil {
@@ -539,8 +517,19 @@ func (a *App) GetTargetDetails(id string) (domain.TargetDetails, error) {
 }
 
 func (a *App) GetSettings() (domain.Settings, error) {
-	s, err := a.settings.Get(a.requestContext())
-	return s, publicErr(err)
+	ctx := a.requestContext()
+	s, err := a.settings.Get(ctx)
+	if err != nil {
+		return s, publicErr(err)
+	}
+	if !s.OnboardingComplete && a.targets != nil {
+		items, listErr := a.targets.List(ctx)
+		if listErr == nil && len(items) > 0 {
+			s.OnboardingComplete = true
+			_ = a.settings.Save(ctx, s)
+		}
+	}
+	return s, nil
 }
 
 func (a *App) UpdateSettings(s domain.Settings) (domain.Settings, error) {
@@ -1051,6 +1040,36 @@ func publicErr(err error) error {
 		return fmt.Errorf("the database is busy. Please try again")
 	}
 	return err
+}
+
+func (a *App) attachDB(db *sql.DB) {
+	a.db = db
+	a.targets = repository.NewTargetRepository(db)
+	a.results = repository.NewResultRepository(db)
+	a.events = repository.NewEventRepository(db)
+	a.settings = repository.NewSettingsRepository(db)
+	a.notifRepo = repository.NewNotificationRepository(db)
+	a.groups = repository.NewGroupRepository(db)
+	a.maintenance = repository.NewMaintenanceRepository(db)
+	a.incidents = repository.NewIncidentRepository(db)
+
+	logger := slog.Default()
+	if a.logger != nil {
+		logger = a.logger.Logger
+	}
+	a.hub = notification.NewHub(a.settings, a.notifRepo, wailsEmitter{app: a}, logger,
+		notification.NewSMSProvider(a.notifRepo),
+		notification.NewWebhookProvider(a.notifRepo),
+		notification.NewTelegramProvider(a.notifRepo),
+		notification.NewDiscordProvider(a.notifRepo),
+		notification.NewSlackProvider(a.notifRepo),
+		notification.NewTeamsProvider(a.notifRepo),
+		notification.NewDesktopProvider(),
+	)
+	a.engine = monitor.NewEngine(monitor.NewICMPPinger(), a.targets, a.results, a.events, a.settings, a.hub, wailsEmitter{app: a}, logger)
+	a.engine.SetMaintenance(a.maintenance)
+	a.engine.SetIncidents(a.incidents)
+	a.scheduler = scheduler.New(a.targets, a.engine, wailsEmitter{app: a}, logger)
 }
 
 func openDB(path string) (*sql.DB, error) {

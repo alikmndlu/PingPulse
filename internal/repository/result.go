@@ -121,6 +121,15 @@ func (r *ResultRepository) Series(ctx context.Context, targetID string, limit in
 	return points, rows.Err()
 }
 
+func (r *ResultRepository) PruneOlderThan(ctx context.Context, targetID string, days int) error {
+	if days < 1 {
+		days = 30
+	}
+	cutoff := time.Now().UTC().AddDate(0, 0, -days).Format(time.RFC3339Nano)
+	_, err := r.db.ExecContext(ctx, `DELETE FROM ping_results WHERE target_id = ? AND timestamp < ?`, targetID, cutoff)
+	return err
+}
+
 func (r *ResultRepository) Prune(ctx context.Context, targetID string, keep int) error {
 	if keep < 100 {
 		keep = 100

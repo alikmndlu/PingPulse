@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Download, ExternalLink, RefreshCw } from "lucide-react";
+import { Download, ExternalLink, FolderOpen, RefreshCw, ScrollText } from "lucide-react";
+import { ConfirmDialog } from "@/components/app/ConfirmDialog";
 import { Page, PageHeader, ToggleRow } from "@/components/app/Page";
 import { EventsOn } from "@wailsjs/runtime/runtime";
 import { Button } from "@/components/ui/button";
@@ -9,13 +10,15 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { api } from "@/services/api";
 import { applyTheme, normalizeTheme, useAppStore } from "@/stores/app";
-import type { Settings, UpdateInfo, UpdateProgress } from "@/types";
+import type { DataPaths, Settings, UpdateInfo, UpdateProgress } from "@/types";
 import { toast } from "sonner";
 import { wailsError } from "@/lib/utils";
 
 export function SettingsPage() {
   const setTheme = useAppStore((s) => s.setTheme);
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [pauseOpen, setPauseOpen] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
 
   useEffect(() => {
     void api
@@ -64,6 +67,7 @@ export function SettingsPage() {
         </CardContent>
       </Card>
       <UpdatesCard />
+      <DataCard onRestore={() => setRestoreOpen(true)} />
       <Card>
         <CardHeader>
           <CardTitle>Monitoring</CardTitle>
@@ -75,6 +79,23 @@ export function SettingsPage() {
           <NumberField label="Default retry delay" value={settings.defaultRetryDelay} onChange={(defaultRetryDelay) => void save({ ...settings, defaultRetryDelay })} />
           <NumberField label="Failure threshold" value={settings.failureThreshold} onChange={(failureThreshold) => void save({ ...settings, failureThreshold })} />
           <NumberField label="Recovery threshold" value={settings.recoveryThreshold} onChange={(recoveryThreshold) => void save({ ...settings, recoveryThreshold })} />
+          <div className="grid gap-2 md:col-span-2 max-w-xs">
+            <Label>Ping history retention</Label>
+            <Select
+              value={String(settings.historyRetentionDays ?? 30)}
+              onValueChange={(v) => void save({ ...settings, historyRetentionDays: Number(v) })}
+            >
+              <SelectTrigger className="mt-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7">7 days</SelectItem>
+                <SelectItem value="30">30 days</SelectItem>
+                <SelectItem value="90">90 days</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">Older ping rows are deleted. Incidents and SLA history are kept.</p>
+          </div>
         </CardContent>
       </Card>
       <Card>
@@ -114,14 +135,94 @@ export function SettingsPage() {
         </CardContent>
       </Card>
       <div className="flex gap-2">
-        <Button variant="outline" onClick={() => void api.pauseAll().then(() => toast.success("All checks paused"))}>
+        <Button variant="outline" onClick={() => setPauseOpen(true)}>
           Pause all
         </Button>
         <Button variant="outline" onClick={() => void api.minimizeToTray()}>
           Minimize to tray
         </Button>
       </div>
+      <ConfirmDialog
+        open={pauseOpen}
+        title="Pause all checks?"
+        description="The scheduler stops probing every target until you press Start again."
+        confirmLabel="Pause all"
+        onOpenChange={setPauseOpen}
+        onConfirm={() => void api.pauseAll().then(() => toast.success("All checks paused")).catch((err) => toast.error(wailsError(err)))}
+      />
+      <ConfirmDialog
+        open={restoreOpen}
+        title="Replace this PingPulse data?"
+        description="Restore overwrites targets, history, incidents, settings, and notification secrets on this computer. PingPulse will quit; open it again afterwards."
+        confirmLabel="Choose backup file"
+        destructive
+        onOpenChange={setRestoreOpen}
+        onConfirm={() => {
+          void api
+            .restoreBackup()
+            .then((res) => {
+              if (res.cancelled) return;
+              toast.success("Backup restored. PingPulse is closing — reopen the app.");
+            })
+            .catch((err) => toast.error(wailsError(err)));
+        }}
+      />
     </Page>
+  );
+}
+
+function DataCard({ onRestore }: { onRestore: () => void }) {
+  const [paths, setPaths] = useState<DataPaths | null>(null);
+
+  useEffect(() => {
+    void api.getDataPaths().then(setPaths).catch(() => setPaths(null));
+  }, []);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Data and backup</CardTitle>
+        <CardDescription>
+          Everything lives on this computer. Export copies pingpulse.db (targets, incidents, settings, and notification keys). Keep that file private — secrets are not shown again in the UI.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {paths ? (
+          <div className="space-y-1">
+            <p className="text-xs font-medium uppercase tracking-[0.06em] text-muted-foreground">Data folder</p>
+            <p className="break-all font-mono text-xs text-foreground">{paths.dir}</p>
+          </div>
+        ) : null}
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => void api.openDataDir().catch((err) => toast.error(wailsError(err)))}>
+            <FolderOpen className="h-4 w-4" />
+            Open folder
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => void api.openLogFile().catch((err) => toast.error(wailsError(err)))}>
+            <ScrollText className="h-4 w-4" />
+            Open log
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              void api
+                .exportBackup()
+                .then((res) => {
+                  if (res.cancelled) return;
+                  toast.success("Backup saved");
+                })
+                .catch((err) => toast.error(wailsError(err)))
+            }
+          >
+            Export backup
+          </Button>
+          <Button variant="outline" size="sm" onClick={onRestore}>
+            Restore backup
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

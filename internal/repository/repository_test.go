@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"testing"
+	"time"
 
 	"pingpulse/internal/database"
 	"pingpulse/internal/domain"
@@ -156,5 +157,33 @@ func TestGroupRepositoryAndTargetMute(t *testing.T) {
 	got, err := targets.Get(context.Background(), created.ID)
 	if err != nil || got.GroupID != "" {
 		t.Fatalf("expected group cleared, got %+v %v", got, err)
+	}
+}
+
+func TestResultPruneOlderThan(t *testing.T) {
+	db, err := database.Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	targets := NewTargetRepository(db)
+	results := NewResultRepository(db)
+	t1, err := targets.Create(context.Background(), domain.Target{Name: "A", Host: "1.1.1.1", Interval: 30, Timeout: 1, LastStatus: domain.StatusUnknown})
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := domain.PingResult{TargetID: t1.ID, Success: true, DurationMs: 1, Timestamp: time.Now().UTC().Add(-40 * 24 * time.Hour)}
+	if _, err := results.Insert(context.Background(), old); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := results.Insert(context.Background(), domain.PingResult{TargetID: t1.ID, Success: true, DurationMs: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := results.PruneOlderThan(context.Background(), t1.ID, 30); err != nil {
+		t.Fatal(err)
+	}
+	page, err := results.List(context.Background(), domain.HistoryFilter{TargetID: t1.ID, Limit: 50})
+	if err != nil || page.Total != 1 {
+		t.Fatalf("expected 1 recent row, got %+v %v", page, err)
 	}
 }

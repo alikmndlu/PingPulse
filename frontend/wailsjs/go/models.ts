@@ -33,6 +33,22 @@ export namespace domain {
 		    return a;
 		}
 	}
+	export class BackupResult {
+	    cancelled: boolean;
+	    path: string;
+	    restartRequired: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new BackupResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.cancelled = source["cancelled"];
+	        this.path = source["path"];
+	        this.restartRequired = source["restartRequired"];
+	    }
+	}
 	export class CreateMaintenanceInput {
 	    name: string;
 	    targetId: string;
@@ -154,6 +170,22 @@ export namespace domain {
 		    }
 		    return a;
 		}
+	}
+	export class DataPaths {
+	    dir: string;
+	    database: string;
+	    log: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DataPaths(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.dir = source["dir"];
+	        this.database = source["database"];
+	        this.log = source["log"];
+	    }
 	}
 	export class Event {
 	    id: string;
@@ -767,6 +799,8 @@ export namespace domain {
 	    theme: string;
 	    logLevel: string;
 	    mutedUntil: string;
+	    historyRetentionDays: number;
+	    onboardingComplete: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Settings(source);
@@ -799,6 +833,8 @@ export namespace domain {
 	        this.theme = source["theme"];
 	        this.logLevel = source["logLevel"];
 	        this.mutedUntil = source["mutedUntil"];
+	        this.historyRetentionDays = source["historyRetentionDays"];
+	        this.onboardingComplete = source["onboardingComplete"];
 	    }
 	}
 	export class SlaTargetRow {

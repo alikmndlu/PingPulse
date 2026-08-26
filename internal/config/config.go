@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 )
@@ -42,4 +43,16 @@ func LogPath() (string, error) {
 
 func OS() string {
 	return runtime.GOOS
+}
+
+func OpenPath(path string) error {
+	path = filepath.Clean(path)
+	switch runtime.GOOS {
+	case "windows":
+		return exec.Command("cmd", "/c", "start", "", path).Start()
+	case "darwin":
+		return exec.Command("open", path).Start()
+	default:
+		return exec.Command("xdg-open", path).Start()
+	}
 }

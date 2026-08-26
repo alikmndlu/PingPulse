@@ -6,6 +6,10 @@ export function CheckForUpdate() {
   return window['go']['main']['App']['CheckForUpdate']();
 }
 
+export function CompleteOnboarding(arg1) {
+  return window['go']['main']['App']['CompleteOnboarding'](arg1);
+}
+
 export function CreateGroup(arg1, arg2) {
   return window['go']['main']['App']['CreateGroup'](arg1, arg2);
 }
@@ -30,6 +34,10 @@ export function DeleteTarget(arg1) {
   return window['go']['main']['App']['DeleteTarget'](arg1);
 }
 
+export function ExportBackup() {
+  return window['go']['main']['App']['ExportBackup']();
+}
+
 export function ExportTargets(arg1) {
   return window['go']['main']['App']['ExportTargets'](arg1);
 }
@@ -40,6 +48,10 @@ export function GetAppVersion() {
 
 export function GetDashboardStats() {
   return window['go']['main']['App']['GetDashboardStats']();
+}
+
+export function GetDataPaths() {
+  return window['go']['main']['App']['GetDataPaths']();
 }
 
 export function GetEvents(arg1) {
@@ -114,6 +126,14 @@ export function MuteTarget(arg1, arg2) {
   return window['go']['main']['App']['MuteTarget'](arg1, arg2);
 }
 
+export function OpenDataDir() {
+  return window['go']['main']['App']['OpenDataDir']();
+}
+
+export function OpenLogFile() {
+  return window['go']['main']['App']['OpenLogFile']();
+}
+
 export function OpenReleasePage() {
   return window['go']['main']['App']['OpenReleasePage']();
 }
@@ -124,6 +144,10 @@ export function PauseAll() {
 
 export function QuitApp() {
   return window['go']['main']['App']['QuitApp']();
+}
+
+export function RestoreBackup() {
+  return window['go']['main']['App']['RestoreBackup']();
 }
 
 export function SetTargetEnabled(arg1, arg2) {

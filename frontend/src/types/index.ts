@@ -149,6 +149,20 @@ export interface Settings {
   theme: "dark" | "light";
   logLevel: string;
   mutedUntil?: string;
+  historyRetentionDays?: number;
+  onboardingComplete?: boolean;
+}
+
+export interface DataPaths {
+  dir: string;
+  database: string;
+  log: string;
+}
+
+export interface BackupResult {
+  cancelled: boolean;
+  path: string;
+  restartRequired: boolean;
 }
 
 export interface NotificationConfig {

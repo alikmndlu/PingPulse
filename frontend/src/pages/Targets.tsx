@@ -6,6 +6,7 @@ import { TargetForm } from "@/components/TargetForm";
 import { GroupBadge, GroupFilter } from "@/components/GroupFilter";
 import { GroupManager } from "@/components/GroupManager";
 import { EmptyState, Page, PageHeader } from "@/components/app/Page";
+import { ConfirmDialog } from "@/components/app/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -35,6 +36,7 @@ export function TargetsPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [importText, setImportText] = useState("");
   const [importFormat, setImportFormat] = useState("json");
+  const [pendingDelete, setPendingDelete] = useState<Target | null>(null);
 
   async function load() {
     try {
@@ -221,18 +223,7 @@ export function TargetsPage() {
                         <DropdownMenuItem onClick={() => void api.setTargetEnabled(t.id, !t.enabled).then(load)}>
                           {t.enabled ? "Disable" : "Enable"}
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-rose-600 dark:text-rose-400"
-                          onClick={() =>
-                            void api
-                              .deleteTarget(t.id)
-                              .then(() => {
-                                toast.success("Target deleted");
-                                return load();
-                              })
-                              .catch((err) => toast.error(wailsError(err)))
-                          }
-                        >
+                        <DropdownMenuItem className="text-rose-600 dark:text-rose-400" onClick={() => setPendingDelete(t)}>
                           Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -266,6 +257,26 @@ export function TargetsPage() {
           </div>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete this target?"
+        description={pendingDelete ? `“${pendingDelete.name}” and its ping history and incidents will be removed.` : ""}
+        confirmLabel="Delete"
+        destructive
+        onOpenChange={(v) => {
+          if (!v) setPendingDelete(null);
+        }}
+        onConfirm={() => {
+          if (!pendingDelete) return;
+          void api
+            .deleteTarget(pendingDelete.id)
+            .then(() => {
+              toast.success("Target deleted");
+              return load();
+            })
+            .catch((err) => toast.error(wailsError(err)));
+        }}
+      />
     </Page>
   );
 }
