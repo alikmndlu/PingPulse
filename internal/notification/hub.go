@@ -159,6 +159,9 @@ func enabledProviders(s domain.Settings) map[string]bool {
 		domain.ProviderDesktop:  s.DesktopNotificationEnabled,
 		domain.ProviderWebhook:  s.WebhookEnabled,
 		domain.ProviderTelegram: s.TelegramEnabled,
+		domain.ProviderDiscord:  s.DiscordEnabled,
+		domain.ProviderSlack:    s.SlackEnabled,
+		domain.ProviderTeams:    s.TeamsEnabled,
 	}
 }
 

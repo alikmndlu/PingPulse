@@ -35,6 +35,8 @@ export function GetNotificationConfig(arg1:string):Promise<domain.NotificationCo
 
 export function GetSettings():Promise<domain.Settings>;
 
+export function GetSlaReport(arg1:string,arg2:number):Promise<domain.SlaReport>;
+
 export function GetTarget(arg1:string):Promise<domain.Target>;
 
 export function GetTargetDetails(arg1:string):Promise<domain.TargetDetails>;

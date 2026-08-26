@@ -165,6 +165,8 @@ func (r *IncidentRepository) Report(ctx context.Context, from, to time.Time) (do
 	}
 	defer rows.Close()
 	byTarget := map[string]*domain.IncidentTargetStat{}
+	mttrSumBy := map[string]int64{}
+	mttrNBy := map[string]int{}
 	var mttrSum int64
 	var mttrN int
 	for rows.Next() {
@@ -173,18 +175,6 @@ func (r *IncidentRepository) Report(ctx context.Context, from, to time.Time) (do
 			return report, err
 		}
 		report.TotalIncidents++
-		if inc.Status == domain.IncidentOpen {
-			report.OpenIncidents++
-		} else {
-			report.ResolvedIncidents++
-			mttrSum += inc.DurationSeconds
-			mttrN++
-		}
-		overlap := incidentOverlapSec(inc, from, to)
-		report.TotalDowntimeSec += overlap
-		if overlap > report.LongestOutageSec {
-			report.LongestOutageSec = overlap
-		}
 		st := byTarget[inc.TargetID]
 		if st == nil {
 			st = &domain.IncidentTargetStat{TargetID: inc.TargetID, TargetName: inc.TargetName, Host: inc.Host}
@@ -192,7 +182,19 @@ func (r *IncidentRepository) Report(ctx context.Context, from, to time.Time) (do
 		}
 		st.Incidents++
 		if inc.Status == domain.IncidentOpen {
+			report.OpenIncidents++
 			st.Open++
+		} else {
+			report.ResolvedIncidents++
+			mttrSum += inc.DurationSeconds
+			mttrN++
+			mttrSumBy[inc.TargetID] += inc.DurationSeconds
+			mttrNBy[inc.TargetID]++
+		}
+		overlap := incidentOverlapSec(inc, from, to)
+		report.TotalDowntimeSec += overlap
+		if overlap > report.LongestOutageSec {
+			report.LongestOutageSec = overlap
 		}
 		st.DowntimeSec += overlap
 		if len(report.Recent) < 20 {
@@ -214,6 +216,9 @@ func (r *IncidentRepository) Report(ctx context.Context, from, to time.Time) (do
 			up = 100
 		}
 		st.UptimePercent = up
+		if n := mttrNBy[st.TargetID]; n > 0 {
+			st.AverageMTTRSec = mttrSumBy[st.TargetID] / int64(n)
+		}
 		report.ByTarget = append(report.ByTarget, *st)
 	}
 	return report, nil

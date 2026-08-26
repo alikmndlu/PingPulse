@@ -56,13 +56,14 @@ type IncidentReport struct {
 }
 
 type IncidentTargetStat struct {
-	TargetID       string  `json:"targetId"`
-	TargetName     string  `json:"targetName"`
-	Host           string  `json:"host"`
-	Incidents      int     `json:"incidents"`
-	Open           int     `json:"open"`
-	DowntimeSec    int64   `json:"downtimeSec"`
-	UptimePercent  float64 `json:"uptimePercent"`
+	TargetID      string  `json:"targetId"`
+	TargetName    string  `json:"targetName"`
+	Host          string  `json:"host"`
+	Incidents     int     `json:"incidents"`
+	Open          int     `json:"open"`
+	DowntimeSec   int64   `json:"downtimeSec"`
+	UptimePercent float64 `json:"uptimePercent"`
+	AverageMTTRSec int64  `json:"averageMttrSec"`
 }
 
 const (

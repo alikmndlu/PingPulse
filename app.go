@@ -83,6 +83,9 @@ func (a *App) startup(ctx context.Context) {
 		notification.NewSMSProvider(a.notifRepo),
 		notification.NewWebhookProvider(a.notifRepo),
 		notification.NewTelegramProvider(a.notifRepo),
+		notification.NewDiscordProvider(a.notifRepo),
+		notification.NewSlackProvider(a.notifRepo),
+		notification.NewTeamsProvider(a.notifRepo),
 		notification.NewDesktopProvider(),
 	)
 	a.engine = monitor.NewEngine(monitor.NewICMPPinger(), a.targets, a.results, a.events, a.settings, a.hub, wailsEmitter{app: a}, a.logger.Logger)
@@ -572,12 +575,24 @@ func (a *App) GetNotificationConfig(provider string) (domain.NotificationConfig,
 			c.BodyTemplate = domain.DefaultTelegramTemplate()
 		}
 	}
+	if strings.TrimSpace(c.BodyTemplate) == "" {
+		switch c.Provider {
+		case domain.ProviderDiscord:
+			c.BodyTemplate = domain.DefaultDiscordTemplate()
+		case domain.ProviderSlack:
+			c.BodyTemplate = domain.DefaultSlackTemplate()
+		case domain.ProviderTeams:
+			c.BodyTemplate = domain.DefaultTeamsTemplate()
+		case domain.ProviderWebhook:
+			c.BodyTemplate = domain.DefaultWebhookTemplate()
+		}
+	}
 	return maskConfig(c), nil
 }
 
 func (a *App) UpdateNotificationConfig(c domain.NotificationConfig) (domain.NotificationConfig, error) {
 	ctx := a.requestContext()
-	if c.Provider != domain.ProviderSMS && c.Provider != domain.ProviderWebhook && c.Provider != domain.ProviderTelegram {
+	if !domain.ValidNotificationProvider(c.Provider) {
 		return c, domain.NewValidationError("provider", "unsupported provider")
 	}
 	existing, err := a.notifRepo.Get(ctx, c.Provider)
@@ -920,6 +935,38 @@ func (a *App) GetIncidentReport(from, to string) (domain.IncidentReport, error) 
 		report.Recent = []domain.Incident{}
 	}
 	return report, publicErr(err)
+}
+
+func (a *App) GetSlaReport(period string, slaTarget float64) (domain.SlaReport, error) {
+	if a.incidents == nil || a.targets == nil {
+		return domain.SlaReport{Targets: []domain.SlaTargetRow{}}, fmt.Errorf("application is still starting")
+	}
+	days := 30
+	switch strings.ToLower(strings.TrimSpace(period)) {
+	case "7d":
+		days = 7
+		period = "7d"
+	case "90d":
+		days = 90
+		period = "90d"
+	default:
+		period = "30d"
+	}
+	end := time.Now().UTC()
+	start := end.Add(-time.Duration(days) * 24 * time.Hour)
+	inc, err := a.incidents.Report(a.requestContext(), start, end)
+	if err != nil {
+		return domain.SlaReport{}, publicErr(err)
+	}
+	targets, err := a.targets.List(a.requestContext())
+	if err != nil {
+		return domain.SlaReport{}, publicErr(err)
+	}
+	if targets == nil {
+		targets = []domain.Target{}
+	}
+	rep := domain.BuildSlaReport(period, slaTarget, start, end, targets, inc)
+	return rep, nil
 }
 
 func (a *App) QuitApp() {

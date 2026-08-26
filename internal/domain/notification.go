@@ -42,7 +42,19 @@ const (
 	ProviderDesktop  = "desktop"
 	ProviderWebhook  = "webhook"
 	ProviderTelegram = "telegram"
+	ProviderDiscord  = "discord"
+	ProviderSlack    = "slack"
+	ProviderTeams    = "teams"
 )
+
+func ValidNotificationProvider(name string) bool {
+	switch name {
+	case ProviderSMS, ProviderWebhook, ProviderTelegram, ProviderDiscord, ProviderSlack, ProviderTeams:
+		return true
+	default:
+		return false
+	}
+}
 
 func DefaultMelipayamakURL() string {
 	return "https://console.melipayamak.com/api/send/simple/{{apiKey}}"
@@ -93,4 +105,16 @@ func DefaultWebhookTemplate() string {
   "latency": "{{latency}}",
   "time": "{{time}}"
 }`
+}
+
+func DefaultDiscordTemplate() string {
+	return `{"content":"**PingPulse** {{status}}\n{{name}} ({{host}})\nFailures: {{failures}}\nTime: {{time}}"}`
+}
+
+func DefaultSlackTemplate() string {
+	return `{"text":"PingPulse: {{name}} ({{host}}) is {{status}} ({{kind}}) at {{time}}"}`
+}
+
+func DefaultTeamsTemplate() string {
+	return `{"text":"PingPulse: {{name}} ({{host}}) is {{status}} ({{kind}}) at {{time}}"}`
 }

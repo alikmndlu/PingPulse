@@ -137,6 +137,9 @@ export interface Settings {
   desktopNotificationEnabled: boolean;
   webhookEnabled: boolean;
   telegramEnabled: boolean;
+  discordEnabled: boolean;
+  slackEnabled: boolean;
+  teamsEnabled: boolean;
   notificationCooldownSeconds: number;
   highLatencyThresholdMs: number;
   notifyOnOffline: boolean;
@@ -299,6 +302,7 @@ export interface IncidentTargetStat {
   open: number;
   downtimeSec: number;
   uptimePercent: number;
+  averageMttrSec?: number;
 }
 
 export interface IncidentReport {
@@ -312,6 +316,35 @@ export interface IncidentReport {
   longestOutageSec: number;
   byTarget: IncidentTargetStat[];
   recent: Incident[];
+}
+
+export interface SlaTargetRow {
+  targetId: string;
+  targetName: string;
+  host: string;
+  groupName: string;
+  uptimePercent: number;
+  targetSlaPercent: number;
+  actualDowntimeSec: number;
+  errorBudgetRemainingPercent: number;
+  status: "compliant" | "warning" | "breached" | string;
+  mtbfHours: number;
+  mttrMinutes: number;
+  outageCount: number;
+}
+
+export interface SlaReport {
+  period: string;
+  slaTarget: number;
+  from: string;
+  to: string;
+  overallUptime: number;
+  compliantCount: number;
+  breachedCount: number;
+  warningCount: number;
+  totalErrorBudgetHours: number;
+  consumedErrorBudgetHours: number;
+  targets: SlaTargetRow[];
 }
 
 export interface ImportResult {

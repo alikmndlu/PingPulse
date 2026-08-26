@@ -12,7 +12,8 @@ import { useAppStore } from "@/stores/app";
 import type { Incident, IncidentReport, Target } from "@/types";
 import { formatDateTime, formatPercent } from "@/lib/format";
 import { formatDuration, fromLocalInputValue, probeLabel, toLocalInputValue } from "@/lib/probe";
-import { Activity, AlertTriangle, Clock, TimerReset } from "lucide-react";
+import { Activity, AlertTriangle, Clock, FileSpreadsheet, Printer, TimerReset } from "lucide-react";
+import { downloadText, printHtml } from "@/lib/reportExport";
 import { toast } from "sonner";
 import { wailsError } from "@/lib/utils";
 
@@ -54,11 +55,47 @@ export function IncidentsPage() {
     void load();
   }, [refreshKey, status, targetId]);
 
+  function exportCsv() {
+    const headers = ["Target", "Host", "Probe", "Status", "Started", "Duration sec", "Summary"];
+    const rows = page.items.map((inc) =>
+      [`"${inc.targetName.replaceAll('"', '""')}"`, `"${inc.host.replaceAll('"', '""')}"`, inc.probeType, inc.status, inc.startedAt, inc.durationSeconds, `"${(inc.summary ?? "").replaceAll('"', '""')}"`].join(","),
+    );
+    downloadText("PingPulse_incidents.csv", [headers.join(","), ...rows].join("\n"), "text/csv");
+    toast.success("Incident list exported");
+  }
+
+  function printReport() {
+    const rows = page.items
+      .map(
+        (inc) =>
+          `<tr><td>${inc.targetName}</td><td>${inc.probeType}</td><td>${inc.status}</td><td>${inc.startedAt}</td><td>${formatDuration(inc.durationSeconds)}</td><td>${inc.summary ?? ""}</td></tr>`,
+      )
+      .join("");
+    printHtml(
+      "PingPulse incidents",
+      `<h1>PingPulse incident report</h1>
+       <div class="meta">${report?.totalIncidents ?? 0} incidents · downtime ${formatDuration(report?.totalDowntimeSec ?? 0)} · MTTR ${formatDuration(report?.averageMttrSec ?? 0)}</div>
+       <table><thead><tr><th>Target</th><th>Probe</th><th>Status</th><th>Started</th><th>Duration</th><th>Summary</th></tr></thead><tbody>${rows}</tbody></table>`,
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Incidents</h1>
-        <p className="text-sm text-muted-foreground">Outage lifecycle, downtime, and MTTR across your targets.</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Incidents</h1>
+          <p className="text-sm text-muted-foreground">Outage lifecycle, downtime, and MTTR across your targets.</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={exportCsv}>
+            <FileSpreadsheet className="h-4 w-4" />
+            Export CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={printReport}>
+            <Printer className="h-4 w-4" />
+            Print
+          </Button>
+        </div>
       </div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Incidents" value={report?.totalIncidents ?? 0} icon={Activity} />

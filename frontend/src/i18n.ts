@@ -6,6 +6,7 @@ export const copy = {
     targets: "Targets",
     history: "History",
     incidents: "Incidents",
+    sla: "SLA",
     maintenance: "Maintenance",
     notifications: "Notifications",
     settings: "Settings",

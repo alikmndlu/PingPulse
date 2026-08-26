@@ -66,6 +66,10 @@ export function GetSettings() {
   return window['go']['main']['App']['GetSettings']();
 }
 
+export function GetSlaReport(arg1, arg2) {
+  return window['go']['main']['App']['GetSlaReport'](arg1, arg2);
+}
+
 export function GetTarget(arg1) {
   return window['go']['main']['App']['GetTarget'](arg1);
 }

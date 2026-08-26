@@ -14,6 +14,9 @@ type Settings struct {
 	DesktopNotificationEnabled   bool   `json:"desktopNotificationEnabled"`
 	WebhookEnabled               bool   `json:"webhookEnabled"`
 	TelegramEnabled              bool   `json:"telegramEnabled"`
+	DiscordEnabled               bool   `json:"discordEnabled"`
+	SlackEnabled                 bool   `json:"slackEnabled"`
+	TeamsEnabled                 bool   `json:"teamsEnabled"`
 	NotificationCooldownSeconds  int    `json:"notificationCooldownSeconds"`
 	HighLatencyThresholdMs       int    `json:"highLatencyThresholdMs"`
 	NotifyOnOffline              bool   `json:"notifyOnOffline"`
@@ -40,6 +43,9 @@ func DefaultSettings() Settings {
 		DesktopNotificationEnabled:   true,
 		WebhookEnabled:               false,
 		TelegramEnabled:              false,
+		DiscordEnabled:               false,
+		SlackEnabled:                 false,
+		TeamsEnabled:                 false,
 		NotificationCooldownSeconds:  600,
 		HighLatencyThresholdMs:       500,
 		NotifyOnOffline:              true,

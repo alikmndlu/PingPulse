@@ -138,6 +138,12 @@ func defaultConfig(provider string) domain.NotificationConfig {
 	case domain.ProviderTelegram:
 		c.APIURL = domain.DefaultTelegramAPI()
 		c.BodyTemplate = domain.DefaultTelegramTemplate()
+	case domain.ProviderDiscord:
+		c.BodyTemplate = domain.DefaultDiscordTemplate()
+	case domain.ProviderSlack:
+		c.BodyTemplate = domain.DefaultSlackTemplate()
+	case domain.ProviderTeams:
+		c.BodyTemplate = domain.DefaultTeamsTemplate()
 	}
 	return c
 }

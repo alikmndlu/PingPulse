@@ -461,6 +461,7 @@ export namespace domain {
 	    open: number;
 	    downtimeSec: number;
 	    uptimePercent: number;
+	    averageMttrSec: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new IncidentTargetStat(source);
@@ -475,6 +476,7 @@ export namespace domain {
 	        this.open = source["open"];
 	        this.downtimeSec = source["downtimeSec"];
 	        this.uptimePercent = source["uptimePercent"];
+	        this.averageMttrSec = source["averageMttrSec"];
 	    }
 	}
 	export class IncidentReport {
@@ -753,6 +755,9 @@ export namespace domain {
 	    desktopNotificationEnabled: boolean;
 	    webhookEnabled: boolean;
 	    telegramEnabled: boolean;
+	    discordEnabled: boolean;
+	    slackEnabled: boolean;
+	    teamsEnabled: boolean;
 	    notificationCooldownSeconds: number;
 	    highLatencyThresholdMs: number;
 	    notifyOnOffline: boolean;
@@ -782,6 +787,9 @@ export namespace domain {
 	        this.desktopNotificationEnabled = source["desktopNotificationEnabled"];
 	        this.webhookEnabled = source["webhookEnabled"];
 	        this.telegramEnabled = source["telegramEnabled"];
+	        this.discordEnabled = source["discordEnabled"];
+	        this.slackEnabled = source["slackEnabled"];
+	        this.teamsEnabled = source["teamsEnabled"];
 	        this.notificationCooldownSeconds = source["notificationCooldownSeconds"];
 	        this.highLatencyThresholdMs = source["highLatencyThresholdMs"];
 	        this.notifyOnOffline = source["notifyOnOffline"];
@@ -793,6 +801,91 @@ export namespace domain {
 	        this.mutedUntil = source["mutedUntil"];
 	    }
 	}
+	export class SlaTargetRow {
+	    targetId: string;
+	    targetName: string;
+	    host: string;
+	    groupName: string;
+	    uptimePercent: number;
+	    targetSlaPercent: number;
+	    actualDowntimeSec: number;
+	    errorBudgetRemainingPercent: number;
+	    status: string;
+	    mtbfHours: number;
+	    mttrMinutes: number;
+	    outageCount: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new SlaTargetRow(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.targetId = source["targetId"];
+	        this.targetName = source["targetName"];
+	        this.host = source["host"];
+	        this.groupName = source["groupName"];
+	        this.uptimePercent = source["uptimePercent"];
+	        this.targetSlaPercent = source["targetSlaPercent"];
+	        this.actualDowntimeSec = source["actualDowntimeSec"];
+	        this.errorBudgetRemainingPercent = source["errorBudgetRemainingPercent"];
+	        this.status = source["status"];
+	        this.mtbfHours = source["mtbfHours"];
+	        this.mttrMinutes = source["mttrMinutes"];
+	        this.outageCount = source["outageCount"];
+	    }
+	}
+	export class SlaReport {
+	    period: string;
+	    slaTarget: number;
+	    from: string;
+	    to: string;
+	    overallUptime: number;
+	    compliantCount: number;
+	    breachedCount: number;
+	    warningCount: number;
+	    totalErrorBudgetHours: number;
+	    consumedErrorBudgetHours: number;
+	    targets: SlaTargetRow[];
+	
+	    static createFrom(source: any = {}) {
+	        return new SlaReport(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.period = source["period"];
+	        this.slaTarget = source["slaTarget"];
+	        this.from = source["from"];
+	        this.to = source["to"];
+	        this.overallUptime = source["overallUptime"];
+	        this.compliantCount = source["compliantCount"];
+	        this.breachedCount = source["breachedCount"];
+	        this.warningCount = source["warningCount"];
+	        this.totalErrorBudgetHours = source["totalErrorBudgetHours"];
+	        this.consumedErrorBudgetHours = source["consumedErrorBudgetHours"];
+	        this.targets = this.convertValues(source["targets"], SlaTargetRow);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
 	export class Target {
 	    id: string;
 	    name: string;

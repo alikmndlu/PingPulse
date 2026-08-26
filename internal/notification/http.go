@@ -38,6 +38,30 @@ func NewWebhookProvider(repo *repository.NotificationRepository) *HTTPProvider {
 	}
 }
 
+func NewDiscordProvider(repo *repository.NotificationRepository) *HTTPProvider {
+	return &HTTPProvider{
+		name:   domain.ProviderDiscord,
+		repo:   repo,
+		client: &http.Client{Timeout: 15 * time.Second},
+	}
+}
+
+func NewSlackProvider(repo *repository.NotificationRepository) *HTTPProvider {
+	return &HTTPProvider{
+		name:   domain.ProviderSlack,
+		repo:   repo,
+		client: &http.Client{Timeout: 15 * time.Second},
+	}
+}
+
+func NewTeamsProvider(repo *repository.NotificationRepository) *HTTPProvider {
+	return &HTTPProvider{
+		name:   domain.ProviderTeams,
+		repo:   repo,
+		client: &http.Client{Timeout: 15 * time.Second},
+	}
+}
+
 func (p *HTTPProvider) Name() string {
 	return p.name
 }
@@ -109,6 +133,9 @@ func (p *HTTPProvider) sendGenericHTTP(ctx context.Context, cfg domain.Notificat
 		method = http.MethodPost
 	}
 	body := RenderTemplate(cfg.BodyTemplate, n)
+	if strings.TrimSpace(body) == "" {
+		body = RenderTemplate(defaultHTTPBody(p.name), n)
+	}
 	req, err := http.NewRequestWithContext(ctx, method, cfg.APIURL, bytes.NewBufferString(body))
 	if err != nil {
 		return fmt.Errorf("invalid %s request", p.name)
@@ -150,4 +177,17 @@ func (p *HTTPProvider) doRequest(req *http.Request, name string) error {
 		return fmt.Errorf("%s provider returned status %d", name, resp.StatusCode)
 	}
 	return nil
+}
+
+func defaultHTTPBody(name string) string {
+	switch name {
+	case domain.ProviderDiscord:
+		return domain.DefaultDiscordTemplate()
+	case domain.ProviderSlack:
+		return domain.DefaultSlackTemplate()
+	case domain.ProviderTeams:
+		return domain.DefaultTeamsTemplate()
+	default:
+		return domain.DefaultWebhookTemplate()
+	}
 }

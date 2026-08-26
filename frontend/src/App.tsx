@@ -5,6 +5,7 @@ import { TargetsPage } from "@/pages/Targets";
 import { TargetDetailsPage } from "@/pages/TargetDetails";
 import { HistoryPage } from "@/pages/History";
 import { IncidentsPage } from "@/pages/Incidents";
+import { SlaReportPage } from "@/pages/SlaReport";
 import { MaintenancePage } from "@/pages/Maintenance";
 import { NotificationsPage } from "@/pages/Notifications";
 import { SettingsPage } from "@/pages/Settings";
@@ -40,6 +41,7 @@ export default function App() {
           <Route path="/targets" element={<TargetsPage />} />
           <Route path="/targets/:id" element={<TargetDetailsPage />} />
           <Route path="/incidents" element={<IncidentsPage />} />
+          <Route path="/sla" element={<SlaReportPage />} />
           <Route path="/maintenance" element={<MaintenancePage />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />

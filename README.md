@@ -48,7 +48,7 @@ Most “uptime” tools assume a server, an account, and a monthly invoice. Ping
 | Know when a host is actually down | Failure / recovery thresholds, not a single missed ping |
 | Keep running with the window closed | Scheduler + system tray |
 | Own the data | Local SQLite, WAL mode, no telemetry |
-| Get alerted without giving a vendor your network | Desktop, SMS HTTP, webhook, Telegram |
+| Get alerted without giving a vendor your network | Desktop, SMS, webhook, Telegram, Discord, Slack, Teams |
 | Ship it to three operating systems | One Wails codebase, tagged GitHub Releases |
 
 ## Features
@@ -60,13 +60,15 @@ Most “uptime” tools assume a server, an account, and a monthly invoice. Ping
 - High-latency and timeout events, independent of offline detection
 - **Maintenance windows** (all targets, one group, or one target) that can suppress checks and/or notifications
 - **Incidents** open on offline and close on recovery, with downtime / MTTR outage reports
+- **SLA reports** against 99 / 99.5 / 99.9 / 99.99%, with error budget, MTBF, and MTTR
 - Pause all checks, or stop the scheduler entirely, without losing targets
 
 **Product surface**
 - Live dashboard: counts, uptime %, open incidents, active maintenance, status donut, group filter
 - Target list with probe type, endpoint, enable/disable, mute, and groups
 - Target details: latency area chart, availability strip, open incident / maintenance badges, recent events
-- Incidents page: filterable outage list plus report (MTTR, downtime, per-target uptime)
+- Incidents page: filterable outage list plus CSV / print export
+- SLA page: compliance vs a chosen target, error budget, CSV / JSON / print
 - Maintenance page: schedule windows with scope and suppress options
 - History with filters: target, status, date range, search
 - JSON / CSV import and export (including group names and probe fields)
@@ -83,6 +85,7 @@ Most “uptime” tools assume a server, an account, and a monthly invoice. Ping
 - SMS over a generic HTTP API (Melipayamak-shaped defaults)
 - Webhooks with JSON templates
 - Telegram bots
+- Discord, Slack, and Microsoft Teams incoming webhooks
 - Per-kind cooldown so the same alert does not fire every interval
 
 ## Architecture
@@ -134,7 +137,7 @@ internal/
   repository/      targets, results, events, settings, notifications, groups, incidents, maintenance
   monitor/         ICMP/HTTP/TCP probers, status evaluator, check engine, maintenance + incidents
   scheduler/       one goroutine per enabled target, context cancellation
-  notification/    provider interface + desktop / SMS / webhook / Telegram
+  notification/    provider interface + desktop / SMS / webhook / Telegram / Discord / Slack / Teams
   autostart/       Windows Run key, macOS LaunchAgent, Linux .desktop
   tray/            systray menu, offline count on the tooltip
   updater/         GitHub latest-release check + self-replace
@@ -235,7 +238,8 @@ pnpm dev
 | **Dashboard** | Fleet pulse: online / offline / unknown, open incidents, active maintenance, uptime, group filter |
 | **Targets** | Create, edit, enable, mute, group, and delete probes (ICMP / HTTP / TCP) |
 | **Target details** | Latency series, availability strip, open incident / maintenance badges, recent events, one-off test |
-| **Incidents** | Outage list plus report: downtime, MTTR, per-target uptime |
+| **Incidents** | Outage list, downtime / MTTR, CSV and print export |
+| **SLA** | Uptime vs 99–99.99%, error budget, MTBF/MTTR, CSV / JSON / print |
 | **Maintenance** | Schedule windows with scope and suppress checks / notifications |
 | **History** | Every stored probe result, filterable |
 | **Notifications** | Provider credentials, templates, test send, alert kinds |
@@ -292,6 +296,9 @@ type Provider interface {
 | **sms** | Generic HTTP API. Defaults are shaped for Melipayamak |
 | **webhook** | HTTP POST (or your method) with a JSON body template |
 | **telegram** | Bot token + chat ID against `https://api.telegram.org` |
+| **discord** | Channel webhook (`{"content":"..."}`) |
+| **slack** | Incoming webhook (`{"text":"..."}`) |
+| **teams** | Incoming webhook (`{"text":"..."}`) |
 
 Alert kinds: `offline`, `recovery`, `high_latency`, `timeout`. Each kind can be toggled in Settings. Cooldown is per `(target, kind)`.
 

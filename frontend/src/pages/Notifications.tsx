@@ -30,26 +30,44 @@ export function NotificationsPage() {
   const [sms, setSms] = useState<NotificationConfig>(emptyConfig("sms"));
   const [webhook, setWebhook] = useState<NotificationConfig>(emptyConfig("webhook"));
   const [telegram, setTelegram] = useState<NotificationConfig>(emptyConfig("telegram"));
+  const [discord, setDiscord] = useState<NotificationConfig>(emptyConfig("discord"));
+  const [slack, setSlack] = useState<NotificationConfig>(emptyConfig("slack"));
+  const [teams, setTeams] = useState<NotificationConfig>(emptyConfig("teams"));
   const [smsKey, setSmsKey] = useState("");
   const [webhookKey, setWebhookKey] = useState("");
   const [telegramKey, setTelegramKey] = useState("");
+  const [discordKey, setDiscordKey] = useState("");
+  const [slackKey, setSlackKey] = useState("");
+  const [teamsKey, setTeamsKey] = useState("");
   const [smsHeaders, setSmsHeaders] = useState("{}");
   const [webhookHeaders, setWebhookHeaders] = useState("{}");
+  const [discordHeaders, setDiscordHeaders] = useState("{}");
+  const [slackHeaders, setSlackHeaders] = useState("{}");
+  const [teamsHeaders, setTeamsHeaders] = useState("{}");
 
   async function load() {
     try {
-      const [s, smsCfg, hookCfg, tgCfg] = await Promise.all([
+      const [s, smsCfg, hookCfg, tgCfg, dcCfg, slCfg, tmCfg] = await Promise.all([
         api.getSettings(),
         api.getNotificationConfig("sms"),
         api.getNotificationConfig("webhook"),
         api.getNotificationConfig("telegram"),
+        api.getNotificationConfig("discord"),
+        api.getNotificationConfig("slack"),
+        api.getNotificationConfig("teams"),
       ]);
       setSettings(s);
       setSms(smsCfg);
       setWebhook(hookCfg);
       setTelegram(tgCfg);
+      setDiscord(dcCfg);
+      setSlack(slCfg);
+      setTeams(tmCfg);
       setSmsHeaders(JSON.stringify(smsCfg.customHeaders ?? {}, null, 2));
       setWebhookHeaders(JSON.stringify(hookCfg.customHeaders ?? {}, null, 2));
+      setDiscordHeaders(JSON.stringify(dcCfg.customHeaders ?? {}, null, 2));
+      setSlackHeaders(JSON.stringify(slCfg.customHeaders ?? {}, null, 2));
+      setTeamsHeaders(JSON.stringify(tmCfg.customHeaders ?? {}, null, 2));
     } catch (err) {
       toast.error(wailsError(err));
     }
@@ -74,6 +92,9 @@ export function NotificationsPage() {
       const saved = await api.updateNotificationConfig({ ...cfg, apiKey: key, customHeaders: headers });
       if (cfg.provider === "sms") setSms(saved);
       else if (cfg.provider === "telegram") setTelegram(saved);
+      else if (cfg.provider === "discord") setDiscord(saved);
+      else if (cfg.provider === "slack") setSlack(saved);
+      else if (cfg.provider === "teams") setTeams(saved);
       else setWebhook(saved);
       toast.success(`${cfg.provider.toUpperCase()} settings saved`);
     } catch (err) {
@@ -104,8 +125,11 @@ export function NotificationsPage() {
           <CardDescription>Enable providers independently. Secrets are stored locally and never shown again.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Toggle label="SMS (Melipayamak)" checked={settings.smsEnabled} onChange={(v) => void saveSettings({ ...settings, smsEnabled: v })} />
+          <Toggle label="Discord" checked={Boolean(settings.discordEnabled)} onChange={(v) => void saveSettings({ ...settings, discordEnabled: v })} />
+          <Toggle label="Slack" checked={Boolean(settings.slackEnabled)} onChange={(v) => void saveSettings({ ...settings, slackEnabled: v })} />
+          <Toggle label="Microsoft Teams" checked={Boolean(settings.teamsEnabled)} onChange={(v) => void saveSettings({ ...settings, teamsEnabled: v })} />
           <Toggle label="Telegram" checked={settings.telegramEnabled} onChange={(v) => void saveSettings({ ...settings, telegramEnabled: v })} />
+          <Toggle label="SMS (Melipayamak)" checked={settings.smsEnabled} onChange={(v) => void saveSettings({ ...settings, smsEnabled: v })} />
           <Toggle label="Desktop" checked={settings.desktopNotificationEnabled} onChange={(v) => void saveSettings({ ...settings, desktopNotificationEnabled: v })} />
           <Toggle label="Webhook" checked={settings.webhookEnabled} onChange={(v) => void saveSettings({ ...settings, webhookEnabled: v })} />
         </CardContent>
@@ -123,12 +147,60 @@ export function NotificationsPage() {
           <Field label="Cooldown (seconds)" type="number" value={settings.notificationCooldownSeconds} onChange={(v) => void saveSettings({ ...settings, notificationCooldownSeconds: Number(v) })} />
         </CardContent>
       </Card>
-      <Tabs defaultValue="telegram">
-        <TabsList>
+      <Tabs defaultValue="discord">
+        <TabsList className="flex h-auto flex-wrap gap-1">
+          <TabsTrigger value="discord">Discord</TabsTrigger>
+          <TabsTrigger value="slack">Slack</TabsTrigger>
+          <TabsTrigger value="teams">Teams</TabsTrigger>
           <TabsTrigger value="telegram">Telegram</TabsTrigger>
           <TabsTrigger value="sms">Melipayamak SMS</TabsTrigger>
           <TabsTrigger value="webhook">Webhook</TabsTrigger>
         </TabsList>
+        <TabsContent value="discord">
+          <ProviderForm
+            title="Discord webhook"
+            description="Paste a channel webhook URL from Discord Server Settings → Integrations → Webhooks."
+            cfg={discord}
+            setCfg={setDiscord}
+            apiKey={discordKey}
+            setApiKey={setDiscordKey}
+            headers={discordHeaders}
+            setHeaders={setDiscordHeaders}
+            urlPlaceholder="https://discord.com/api/webhooks/..."
+            onSave={() => saveProvider(discord, discordKey, discordHeaders)}
+            onTest={() => test("discord")}
+          />
+        </TabsContent>
+        <TabsContent value="slack">
+          <ProviderForm
+            title="Slack incoming webhook"
+            description="Create an Incoming Webhook in Slack and paste the URL here."
+            cfg={slack}
+            setCfg={setSlack}
+            apiKey={slackKey}
+            setApiKey={setSlackKey}
+            headers={slackHeaders}
+            setHeaders={setSlackHeaders}
+            urlPlaceholder="https://hooks.slack.com/services/..."
+            onSave={() => saveProvider(slack, slackKey, slackHeaders)}
+            onTest={() => test("slack")}
+          />
+        </TabsContent>
+        <TabsContent value="teams">
+          <ProviderForm
+            title="Microsoft Teams webhook"
+            description="Use a Teams Incoming Webhook URL for the channel you want alerts in."
+            cfg={teams}
+            setCfg={setTeams}
+            apiKey={teamsKey}
+            setApiKey={setTeamsKey}
+            headers={teamsHeaders}
+            setHeaders={setTeamsHeaders}
+            urlPlaceholder="https://outlook.office.com/webhook/..."
+            onSave={() => saveProvider(teams, teamsKey, teamsHeaders)}
+            onTest={() => test("teams")}
+          />
+        </TabsContent>
         <TabsContent value="telegram">
           <Card>
             <CardHeader>
