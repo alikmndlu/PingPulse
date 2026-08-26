@@ -5,7 +5,7 @@ import "time"
 type PingResult struct {
 	ID         string    `json:"id"`
 	TargetID   string    `json:"targetId"`
-	Timestamp  time.Time `json:"timestamp"`
+	Timestamp  time.Time `json:"timestamp" ts_type:"string"`
 	Success    bool      `json:"success"`
 	LatencyMs  *int64    `json:"latencyMs"`
 	Error      *string   `json:"error"`

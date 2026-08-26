@@ -16,7 +16,7 @@ type Event struct {
 	TargetID  string    `json:"targetId"`
 	Type      EventType `json:"type"`
 	Message   string    `json:"message"`
-	CreatedAt time.Time `json:"createdAt"`
+	CreatedAt time.Time `json:"createdAt" ts_type:"string"`
 	Metadata  string    `json:"metadata"`
 }
 

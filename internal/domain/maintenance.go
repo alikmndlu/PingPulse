@@ -7,14 +7,14 @@ type MaintenanceWindow struct {
 	Name                  string    `json:"name"`
 	TargetID              string    `json:"targetId"`
 	GroupID               string    `json:"groupId"`
-	StartsAt              time.Time `json:"startsAt"`
-	EndsAt                time.Time `json:"endsAt"`
+	StartsAt              time.Time `json:"startsAt" ts_type:"string"`
+	EndsAt                time.Time `json:"endsAt" ts_type:"string"`
 	Reason                string    `json:"reason"`
 	SuppressChecks        bool      `json:"suppressChecks"`
 	SuppressNotifications bool      `json:"suppressNotifications"`
 	Enabled               bool      `json:"enabled"`
-	CreatedAt             time.Time `json:"createdAt"`
-	UpdatedAt             time.Time `json:"updatedAt"`
+	CreatedAt             time.Time `json:"createdAt" ts_type:"string"`
+	UpdatedAt             time.Time `json:"updatedAt" ts_type:"string"`
 	// Joined display fields
 	TargetName string `json:"targetName"`
 	GroupName  string `json:"groupName"`

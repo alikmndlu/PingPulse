@@ -11,13 +11,13 @@ type Target struct {
 	Timeout              int          `json:"timeout"`
 	RetryCount           int          `json:"retryCount"`
 	RetryDelay           int          `json:"retryDelay"`
-	CreatedAt            time.Time    `json:"createdAt"`
-	UpdatedAt            time.Time    `json:"updatedAt"`
+	CreatedAt            time.Time    `json:"createdAt" ts_type:"string"`
+	UpdatedAt            time.Time    `json:"updatedAt" ts_type:"string"`
 	LastStatus           TargetStatus `json:"lastStatus"`
 	LastLatency          *int64       `json:"lastLatency"`
-	LastCheckedAt        *time.Time   `json:"lastCheckedAt"`
-	LastSuccessAt        *time.Time   `json:"lastSuccessAt"`
-	LastFailureAt        *time.Time   `json:"lastFailureAt"`
+	LastCheckedAt        *time.Time   `json:"lastCheckedAt" ts_type:"string"`
+	LastSuccessAt        *time.Time   `json:"lastSuccessAt" ts_type:"string"`
+	LastFailureAt        *time.Time   `json:"lastFailureAt" ts_type:"string"`
 	ConsecutiveFailures  int          `json:"consecutiveFailures"`
 	ConsecutiveSuccesses int          `json:"consecutiveSuccesses"`
 	GroupID              string       `json:"groupId"`
@@ -93,8 +93,8 @@ type DashboardStats struct {
 	Unknown           int        `json:"unknown"`
 	Disabled          int        `json:"disabled"`
 	ErrorCount        int        `json:"errorCount"`
-	LastCheck         *time.Time `json:"lastCheck"`
-	NextCheck         *time.Time `json:"nextCheck"`
+	LastCheck         *time.Time `json:"lastCheck" ts_type:"string"`
+	NextCheck         *time.Time `json:"nextCheck" ts_type:"string"`
 	Monitoring        bool       `json:"monitoring"`
 	Paused            bool       `json:"paused"`
 	UptimePercent     float64    `json:"uptimePercent"`
@@ -127,13 +127,13 @@ type TargetDetails struct {
 }
 
 type LatencyPoint struct {
-	Timestamp time.Time `json:"timestamp"`
+	Timestamp time.Time `json:"timestamp" ts_type:"string"`
 	Latency   *int64    `json:"latency"`
 	Success   bool      `json:"success"`
 }
 
 type AvailabilityPoint struct {
-	Timestamp time.Time `json:"timestamp"`
+	Timestamp time.Time `json:"timestamp" ts_type:"string"`
 	Up        bool      `json:"up"`
 }
 
@@ -160,7 +160,7 @@ type ProbeTestInput struct {
 type MonitoringStatus struct {
 	Running   bool       `json:"running"`
 	Paused    bool       `json:"paused"`
-	StartedAt *time.Time `json:"startedAt"`
+	StartedAt *time.Time `json:"startedAt" ts_type:"string"`
 }
 
 func (t Target) EndpointLabel() string {

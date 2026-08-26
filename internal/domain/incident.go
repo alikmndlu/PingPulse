@@ -16,13 +16,13 @@ type Incident struct {
 	Host            string         `json:"host"`
 	ProbeType       ProbeType      `json:"probeType"`
 	Status          IncidentStatus `json:"status"`
-	StartedAt       time.Time      `json:"startedAt"`
-	EndedAt         *time.Time     `json:"endedAt"`
+	StartedAt       time.Time      `json:"startedAt" ts_type:"string"`
+	EndedAt         *time.Time     `json:"endedAt" ts_type:"string"`
 	DurationSeconds int64          `json:"durationSeconds"`
 	FailureCount    int            `json:"failureCount"`
 	Summary         string         `json:"summary"`
-	CreatedAt       time.Time      `json:"createdAt"`
-	UpdatedAt       time.Time      `json:"updatedAt"`
+	CreatedAt       time.Time      `json:"createdAt" ts_type:"string"`
+	UpdatedAt       time.Time      `json:"updatedAt" ts_type:"string"`
 }
 
 type IncidentFilter struct {

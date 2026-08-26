@@ -1,8 +1,7 @@
 export namespace domain {
 	
 	export class AvailabilityPoint {
-	    // Go type: time
-	    timestamp: any;
+	    timestamp: string;
 	    up: boolean;
 	
 	    static createFrom(source: any = {}) {
@@ -11,27 +10,9 @@ export namespace domain {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.timestamp = this.convertValues(source["timestamp"], null);
+	        this.timestamp = source["timestamp"];
 	        this.up = source["up"];
 	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
 	}
 	export class BackupResult {
 	    cancelled: boolean;
@@ -120,10 +101,8 @@ export namespace domain {
 	    unknown: number;
 	    disabled: number;
 	    errorCount: number;
-	    // Go type: time
-	    lastCheck?: any;
-	    // Go type: time
-	    nextCheck?: any;
+	    lastCheck?: string;
+	    nextCheck?: string;
 	    monitoring: boolean;
 	    paused: boolean;
 	    uptimePercent: number;
@@ -143,8 +122,8 @@ export namespace domain {
 	        this.unknown = source["unknown"];
 	        this.disabled = source["disabled"];
 	        this.errorCount = source["errorCount"];
-	        this.lastCheck = this.convertValues(source["lastCheck"], null);
-	        this.nextCheck = this.convertValues(source["nextCheck"], null);
+	        this.lastCheck = source["lastCheck"];
+	        this.nextCheck = source["nextCheck"];
 	        this.monitoring = source["monitoring"];
 	        this.paused = source["paused"];
 	        this.uptimePercent = source["uptimePercent"];
@@ -152,24 +131,6 @@ export namespace domain {
 	        this.openIncidents = source["openIncidents"];
 	        this.activeMaintenance = source["activeMaintenance"];
 	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
 	}
 	export class DataPaths {
 	    dir: string;
@@ -192,8 +153,7 @@ export namespace domain {
 	    targetId: string;
 	    type: string;
 	    message: string;
-	    // Go type: time
-	    createdAt: any;
+	    createdAt: string;
 	    metadata: string;
 	
 	    static createFrom(source: any = {}) {
@@ -206,27 +166,9 @@ export namespace domain {
 	        this.targetId = source["targetId"];
 	        this.type = source["type"];
 	        this.message = source["message"];
-	        this.createdAt = this.convertValues(source["createdAt"], null);
+	        this.createdAt = source["createdAt"];
 	        this.metadata = source["metadata"];
 	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
 	}
 	export class EventFilter {
 	    targetId: string;
@@ -273,8 +215,7 @@ export namespace domain {
 	export class PingResult {
 	    id: string;
 	    targetId: string;
-	    // Go type: time
-	    timestamp: any;
+	    timestamp: string;
 	    success: boolean;
 	    latencyMs?: number;
 	    error?: string;
@@ -288,30 +229,12 @@ export namespace domain {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
 	        this.targetId = source["targetId"];
-	        this.timestamp = this.convertValues(source["timestamp"], null);
+	        this.timestamp = source["timestamp"];
 	        this.success = source["success"];
 	        this.latencyMs = source["latencyMs"];
 	        this.error = source["error"];
 	        this.durationMs = source["durationMs"];
 	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
 	}
 	export class HistoryPage {
 	    items: PingResult[];
@@ -374,17 +297,13 @@ export namespace domain {
 	    host: string;
 	    probeType: string;
 	    status: string;
-	    // Go type: time
-	    startedAt: any;
-	    // Go type: time
-	    endedAt?: any;
+	    startedAt: string;
+	    endedAt?: string;
 	    durationSeconds: number;
 	    failureCount: number;
 	    summary: string;
-	    // Go type: time
-	    createdAt: any;
-	    // Go type: time
-	    updatedAt: any;
+	    createdAt: string;
+	    updatedAt: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Incident(source);
@@ -398,32 +317,14 @@ export namespace domain {
 	        this.host = source["host"];
 	        this.probeType = source["probeType"];
 	        this.status = source["status"];
-	        this.startedAt = this.convertValues(source["startedAt"], null);
-	        this.endedAt = this.convertValues(source["endedAt"], null);
+	        this.startedAt = source["startedAt"];
+	        this.endedAt = source["endedAt"];
 	        this.durationSeconds = source["durationSeconds"];
 	        this.failureCount = source["failureCount"];
 	        this.summary = source["summary"];
-	        this.createdAt = this.convertValues(source["createdAt"], null);
-	        this.updatedAt = this.convertValues(source["updatedAt"], null);
+	        this.createdAt = source["createdAt"];
+	        this.updatedAt = source["updatedAt"];
 	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
 	}
 	export class IncidentFilter {
 	    targetId: string;
@@ -561,8 +462,7 @@ export namespace domain {
 	}
 	
 	export class LatencyPoint {
-	    // Go type: time
-	    timestamp: any;
+	    timestamp: string;
 	    latency?: number;
 	    success: boolean;
 	
@@ -572,46 +472,24 @@ export namespace domain {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.timestamp = this.convertValues(source["timestamp"], null);
+	        this.timestamp = source["timestamp"];
 	        this.latency = source["latency"];
 	        this.success = source["success"];
 	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
 	}
 	export class MaintenanceWindow {
 	    id: string;
 	    name: string;
 	    targetId: string;
 	    groupId: string;
-	    // Go type: time
-	    startsAt: any;
-	    // Go type: time
-	    endsAt: any;
+	    startsAt: string;
+	    endsAt: string;
 	    reason: string;
 	    suppressChecks: boolean;
 	    suppressNotifications: boolean;
 	    enabled: boolean;
-	    // Go type: time
-	    createdAt: any;
-	    // Go type: time
-	    updatedAt: any;
+	    createdAt: string;
+	    updatedAt: string;
 	    targetName: string;
 	    groupName: string;
 	    active: boolean;
@@ -626,42 +504,23 @@ export namespace domain {
 	        this.name = source["name"];
 	        this.targetId = source["targetId"];
 	        this.groupId = source["groupId"];
-	        this.startsAt = this.convertValues(source["startsAt"], null);
-	        this.endsAt = this.convertValues(source["endsAt"], null);
+	        this.startsAt = source["startsAt"];
+	        this.endsAt = source["endsAt"];
 	        this.reason = source["reason"];
 	        this.suppressChecks = source["suppressChecks"];
 	        this.suppressNotifications = source["suppressNotifications"];
 	        this.enabled = source["enabled"];
-	        this.createdAt = this.convertValues(source["createdAt"], null);
-	        this.updatedAt = this.convertValues(source["updatedAt"], null);
+	        this.createdAt = source["createdAt"];
+	        this.updatedAt = source["updatedAt"];
 	        this.targetName = source["targetName"];
 	        this.groupName = source["groupName"];
 	        this.active = source["active"];
 	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
 	}
 	export class MonitoringStatus {
 	    running: boolean;
 	    paused: boolean;
-	    // Go type: time
-	    startedAt?: any;
+	    startedAt?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new MonitoringStatus(source);
@@ -671,26 +530,8 @@ export namespace domain {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.running = source["running"];
 	        this.paused = source["paused"];
-	        this.startedAt = this.convertValues(source["startedAt"], null);
+	        this.startedAt = source["startedAt"];
 	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
 	}
 	export class NotificationConfig {
 	    id: string;
@@ -931,18 +772,13 @@ export namespace domain {
 	    timeout: number;
 	    retryCount: number;
 	    retryDelay: number;
-	    // Go type: time
-	    createdAt: any;
-	    // Go type: time
-	    updatedAt: any;
+	    createdAt: string;
+	    updatedAt: string;
 	    lastStatus: string;
 	    lastLatency?: number;
-	    // Go type: time
-	    lastCheckedAt?: any;
-	    // Go type: time
-	    lastSuccessAt?: any;
-	    // Go type: time
-	    lastFailureAt?: any;
+	    lastCheckedAt?: string;
+	    lastSuccessAt?: string;
+	    lastFailureAt?: string;
 	    consecutiveFailures: number;
 	    consecutiveSuccesses: number;
 	    groupId: string;
@@ -969,13 +805,13 @@ export namespace domain {
 	        this.timeout = source["timeout"];
 	        this.retryCount = source["retryCount"];
 	        this.retryDelay = source["retryDelay"];
-	        this.createdAt = this.convertValues(source["createdAt"], null);
-	        this.updatedAt = this.convertValues(source["updatedAt"], null);
+	        this.createdAt = source["createdAt"];
+	        this.updatedAt = source["updatedAt"];
 	        this.lastStatus = source["lastStatus"];
 	        this.lastLatency = source["lastLatency"];
-	        this.lastCheckedAt = this.convertValues(source["lastCheckedAt"], null);
-	        this.lastSuccessAt = this.convertValues(source["lastSuccessAt"], null);
-	        this.lastFailureAt = this.convertValues(source["lastFailureAt"], null);
+	        this.lastCheckedAt = source["lastCheckedAt"];
+	        this.lastSuccessAt = source["lastSuccessAt"];
+	        this.lastFailureAt = source["lastFailureAt"];
 	        this.consecutiveFailures = source["consecutiveFailures"];
 	        this.consecutiveSuccesses = source["consecutiveSuccesses"];
 	        this.groupId = source["groupId"];
@@ -988,24 +824,6 @@ export namespace domain {
 	        this.expectStatus = source["expectStatus"];
 	        this.tcpPort = source["tcpPort"];
 	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
 	}
 	export class TargetMetrics {
 	    currentLatency?: number;
@@ -1083,10 +901,8 @@ export namespace domain {
 	    id: string;
 	    name: string;
 	    color: string;
-	    // Go type: time
-	    createdAt: any;
-	    // Go type: time
-	    updatedAt: any;
+	    createdAt: string;
+	    updatedAt: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new TargetGroup(source);
@@ -1097,27 +913,9 @@ export namespace domain {
 	        this.id = source["id"];
 	        this.name = source["name"];
 	        this.color = source["color"];
-	        this.createdAt = this.convertValues(source["createdAt"], null);
-	        this.updatedAt = this.convertValues(source["updatedAt"], null);
+	        this.createdAt = source["createdAt"];
+	        this.updatedAt = source["updatedAt"];
 	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
 	}
 	
 	export class UpdateMaintenanceInput {
