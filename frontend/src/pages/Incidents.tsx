@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { EmptyState, Page, PageHeader } from "@/components/app/Page";
+import { MetricSkeletonGrid, TableSkeleton } from "@/components/app/Skeleton";
 import { MetricCard } from "@/components/MetricCard";
+import { Crossfade, Stagger, StaggerItem } from "@/components/app/Motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,20 +17,24 @@ import { formatDateTime, formatPercent } from "@/lib/format";
 import { formatDuration, fromLocalInputValue, probeLabel, toLocalInputValue } from "@/lib/probe";
 import { Activity, AlertTriangle, Clock, FileSpreadsheet, Printer, TimerReset } from "lucide-react";
 import { downloadText, printHtml } from "@/lib/reportExport";
+import { useCachedState } from "@/lib/queryCache";
 import { toast } from "sonner";
 import { wailsError } from "@/lib/utils";
 
 export function IncidentsPage() {
   const navigate = useNavigate();
   const refreshKey = useAppStore((s) => s.refreshKey);
-  const [targets, setTargets] = useState<Target[]>([]);
-  const [page, setPage] = useState<{ items: Incident[]; total: number }>({ items: [], total: 0 });
-  const [report, setReport] = useState<IncidentReport | null>(null);
-  const [status, setStatus] = useState("all");
-  const [targetId, setTargetId] = useState("all");
+  const [targets, setTargets] = useCachedState<Target[]>("targets", []);
+  const [page, setPage] = useCachedState<{ items: Incident[]; total: number }>("incidents:page", { items: [], total: 0 });
+  const [report, setReport, hasReport] = useCachedState<IncidentReport | null>("incidents:report", null);
+  const [status, setStatus] = useCachedState("incidents:status", "all");
+  const [targetId, setTargetId] = useCachedState("incidents:target", "all");
   const [search, setSearch] = useState("");
-  const [from, setFrom] = useState(toLocalInputValue(new Date(Date.now() - 30 * 86400_000).toISOString()));
-  const [to, setTo] = useState(toLocalInputValue(new Date().toISOString()));
+  const [from, setFrom] = useCachedState(
+    "incidents:from",
+    toLocalInputValue(new Date(Date.now() - 30 * 86400_000).toISOString()),
+  );
+  const [to, setTo] = useCachedState("incidents:to", toLocalInputValue(new Date().toISOString()));
 
   async function load() {
     try {
@@ -82,7 +88,7 @@ export function IncidentsPage() {
 
   return (
     <Page>
-      <PageHeader title="Incidents" description="Outage lifecycle, downtime, and MTTR across your targets.">
+      <PageHeader kicker="Reliability" title="Incidents" description="Outage lifecycle, downtime, and MTTR across your targets.">
         <Button variant="outline" size="sm" onClick={exportCsv}>
           <FileSpreadsheet className="h-4 w-4" />
           Export CSV
@@ -92,12 +98,22 @@ export function IncidentsPage() {
           Print
         </Button>
       </PageHeader>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Incidents" value={report?.totalIncidents ?? 0} icon={Activity} />
-        <MetricCard label="Open" value={report?.openIncidents ?? 0} icon={AlertTriangle} tone="danger" />
-        <MetricCard label="Total downtime" value={formatDuration(report?.totalDowntimeSec ?? 0)} icon={Clock} tone="warning" />
-        <MetricCard label="Average MTTR" value={formatDuration(report?.averageMttrSec ?? 0)} icon={TimerReset} />
-      </div>
+      <Crossfade ready={hasReport} skeleton={<MetricSkeletonGrid count={4} />}>
+      <Stagger className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <StaggerItem>
+          <MetricCard label="Incidents" value={report?.totalIncidents ?? 0} icon={Activity} />
+        </StaggerItem>
+        <StaggerItem>
+          <MetricCard label="Open" value={report?.openIncidents ?? 0} icon={AlertTriangle} tone="danger" />
+        </StaggerItem>
+        <StaggerItem>
+          <MetricCard label="Total downtime" value={formatDuration(report?.totalDowntimeSec ?? 0)} icon={Clock} tone="warning" />
+        </StaggerItem>
+        <StaggerItem>
+          <MetricCard label="Average MTTR" value={formatDuration(report?.averageMttrSec ?? 0)} icon={TimerReset} />
+        </StaggerItem>
+      </Stagger>
+      </Crossfade>
       <Card>
         <CardHeader>
           <CardTitle>Report filters</CardTitle>
@@ -151,10 +167,14 @@ export function IncidentsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(report?.byTarget ?? []).length === 0 ? (
+                {(hasReport ? report?.byTarget ?? [] : []).length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="p-0">
-                      <EmptyState title="No outages in this range" hint="Incidents appear here when a target stays offline past the failure threshold." />
+                      {hasReport ? (
+                        <EmptyState title="No outages in this range" hint="Incidents appear here when a target stays offline past the failure threshold." />
+                      ) : (
+                        <TableSkeleton />
+                      )}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -194,7 +214,11 @@ export function IncidentsPage() {
                 {page.items.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="p-0">
-                      <EmptyState title="No incidents" hint="Adjust filters or wait for the next outage." />
+                      {hasReport ? (
+                        <EmptyState title="No incidents" hint="Adjust filters or wait for the next outage." />
+                      ) : (
+                        <TableSkeleton />
+                      )}
                     </TableCell>
                   </TableRow>
                 ) : (

@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Download, ExternalLink, FolderOpen, RefreshCw, ScrollText } from "lucide-react";
 import { ConfirmDialog } from "@/components/app/ConfirmDialog";
 import { Page, PageHeader, ToggleRow } from "@/components/app/Page";
+import { CardSkeleton } from "@/components/app/Skeleton";
+import { Stagger, StaggerItem } from "@/components/app/Motion";
 import { EventsOn } from "@wailsjs/runtime/runtime";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,12 +13,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { api } from "@/services/api";
 import { applyTheme, normalizeTheme, useAppStore } from "@/stores/app";
 import type { DataPaths, Settings, UpdateInfo, UpdateProgress } from "@/types";
+import { peekCache, putCache } from "@/lib/queryCache";
 import { toast } from "sonner";
 import { wailsError } from "@/lib/utils";
 
 export function SettingsPage() {
   const setTheme = useAppStore((s) => s.setTheme);
-  const [settings, setSettings] = useState<Settings | null>(null);
+  const [settings, setSettings] = useState<Settings | null>(() => {
+    const hit = peekCache<Settings>("settings");
+    return hit ? { ...hit, theme: normalizeTheme(hit.theme) } : null;
+  });
   const [pauseOpen, setPauseOpen] = useState(false);
   const [restoreOpen, setRestoreOpen] = useState(false);
 
@@ -26,6 +32,7 @@ export function SettingsPage() {
       .then((s) => {
         const theme = normalizeTheme(s.theme);
         const next = { ...s, theme };
+        putCache("settings", next);
         setSettings(next);
         setTheme(theme);
       })
@@ -35,6 +42,7 @@ export function SettingsPage() {
   async function save(next: Settings) {
     try {
       const saved = await api.updateSettings(next);
+      putCache("settings", saved);
       setSettings(saved);
       setTheme(saved.theme);
       applyTheme(saved.theme);
@@ -47,14 +55,23 @@ export function SettingsPage() {
   if (!settings) {
     return (
       <Page>
-        <p className="text-sm text-muted-foreground">Loading settings…</p>
+        <PageHeader kicker="System" title="Settings" description="Defaults, thresholds, and how PingPulse behaves in the background." />
+        <CardSkeleton lines={3} />
+        <CardSkeleton lines={3} />
+        <CardSkeleton lines={6} />
+        <div className="grid gap-3 md:grid-cols-2">
+          <CardSkeleton lines={2} />
+          <CardSkeleton lines={2} />
+        </div>
       </Page>
     );
   }
 
   return (
     <Page>
-      <PageHeader title="Settings" description="Defaults, thresholds, and how PingPulse behaves in the background." />
+      <PageHeader kicker="System" title="Settings" description="Defaults, thresholds, and how PingPulse behaves in the background." />
+      <Stagger className="space-y-8">
+      <StaggerItem>
       <Card>
         <CardHeader>
           <CardTitle>General</CardTitle>
@@ -66,8 +83,14 @@ export function SettingsPage() {
           <ToggleRow label="Start monitoring automatically" checked={settings.startMonitoringAutomatically} onChange={(startMonitoringAutomatically) => void save({ ...settings, startMonitoringAutomatically })} />
         </CardContent>
       </Card>
+      </StaggerItem>
+      <StaggerItem>
       <UpdatesCard />
+      </StaggerItem>
+      <StaggerItem>
       <DataCard onRestore={() => setRestoreOpen(true)} />
+      </StaggerItem>
+      <StaggerItem>
       <Card>
         <CardHeader>
           <CardTitle>Monitoring</CardTitle>
@@ -98,6 +121,8 @@ export function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+      </StaggerItem>
+      <StaggerItem>
       <Card>
         <CardHeader>
           <CardTitle>Appearance</CardTitle>
@@ -115,6 +140,8 @@ export function SettingsPage() {
           </Select>
         </CardContent>
       </Card>
+      </StaggerItem>
+      <StaggerItem>
       <Card>
         <CardHeader>
           <CardTitle>Logging</CardTitle>
@@ -134,6 +161,8 @@ export function SettingsPage() {
           </Select>
         </CardContent>
       </Card>
+      </StaggerItem>
+      <StaggerItem>
       <div className="flex gap-2">
         <Button variant="outline" onClick={() => setPauseOpen(true)}>
           Pause all
@@ -142,6 +171,8 @@ export function SettingsPage() {
           Minimize to tray
         </Button>
       </div>
+      </StaggerItem>
+      </Stagger>
       <ConfirmDialog
         open={pauseOpen}
         title="Pause all checks?"
@@ -325,7 +356,10 @@ function UpdatesCard() {
             {installing && progress && (
               <div className="space-y-1">
                 <div className="h-2 overflow-hidden rounded-full bg-muted">
-                  <div className="h-full bg-primary transition-all" style={{ width: `${Math.min(100, progress.percent)}%` }} />
+                  <div
+                    className="h-full rounded-full bg-primary transition-[width] duration-300 ease-out"
+                    style={{ width: `${Math.min(100, progress.percent)}%` }}
+                  />
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {progress.percent}%

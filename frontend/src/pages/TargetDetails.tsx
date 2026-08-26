@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Bell, BellOff } from "lucide-react";
-import { Page } from "@/components/app/Page";
+import { Bell, BellOff, Gauge, Activity, Timer, TrendingUp } from "lucide-react";
+import { Page, PageHeader } from "@/components/app/Page";
+import { DetailsSkeleton } from "@/components/app/Skeleton";
+import { Stagger, StaggerItem } from "@/components/app/Motion";
 import { StatusBadge } from "@/components/StatusBadge";
 import { GroupBadge } from "@/components/GroupFilter";
 import { AvailabilityStrip } from "@/components/charts/AvailabilityStrip";
 import { LatencyAreaChart } from "@/components/charts/LatencyAreaChart";
 import { ResultsDonut } from "@/components/charts/ResultsDonut";
+import { MetricCard } from "@/components/MetricCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -17,6 +20,7 @@ import { formatDateTime, formatLatency, formatPercent, formatTime } from "@/lib/
 import { formatMuteRemaining, isMuted } from "@/lib/mute";
 import { endpointLabel, formatDuration, probeLabel } from "@/lib/probe";
 import { Badge } from "@/components/ui/badge";
+import { peekCache, putCache } from "@/lib/queryCache";
 import { toast } from "sonner";
 import { wailsError } from "@/lib/utils";
 
@@ -24,25 +28,29 @@ export function TargetDetailsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const refreshKey = useAppStore((s) => s.refreshKey);
-  const [data, setData] = useState<TargetDetails | null>(null);
+  const [data, setData] = useState<TargetDetails | null>(() => (id ? peekCache<TargetDetails>(`target:${id}`) ?? null : null));
 
   async function load() {
     if (!id) return;
     try {
-      setData(await api.getTargetDetails(id));
+      const next = await api.getTargetDetails(id);
+      putCache(`target:${id}`, next);
+      setData(next);
     } catch (err) {
       toast.error(wailsError(err));
     }
   }
 
   useEffect(() => {
+    if (!id) return;
+    setData(peekCache<TargetDetails>(`target:${id}`) ?? null);
     void load();
   }, [id, refreshKey]);
 
   if (!data) {
     return (
       <Page>
-        <p className="text-sm text-muted-foreground">Loading target…</p>
+        <DetailsSkeleton />
       </Page>
     );
   }
@@ -70,27 +78,27 @@ export function TargetDetailsPage() {
 
   return (
     <Page>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 space-y-2">
-          <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => navigate("/targets")}>
-            ← Targets
-          </button>
-          <h1 className="text-[1.3125rem] font-semibold tracking-tight">{t.name}</h1>
-          <p className="font-mono text-sm text-muted-foreground">{endpointLabel(t)}</p>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <GroupBadge name={t.groupName} color={t.groupColor} />
-            <Badge variant="outline">{probeLabel(t.probeType)}</Badge>
-            {data.inMaintenance ? <Badge variant="warning">Maintenance</Badge> : null}
-            {data.openIncident ? <Badge variant="danger">Open incident</Badge> : null}
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button variant={muted ? "secondary" : "outline"} size="sm" onClick={() => void toggleMute()}>
-            {muted ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
-            {muted ? `Quiet ${formatMuteRemaining(t.mutedUntil)}` : "Mute 1 hour"}
-          </Button>
-          <StatusBadge status={t.lastStatus} />
-        </div>
+      <PageHeader
+        kicker="Target"
+        title={t.name}
+        description={
+          <span className="block font-mono text-sm">{endpointLabel(t)}</span>
+        }
+      >
+        <Button variant="outline" size="sm" onClick={() => navigate("/targets")}>
+          ← Targets
+        </Button>
+        <Button variant={muted ? "secondary" : "outline"} size="sm" onClick={() => void toggleMute()}>
+          {muted ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+          {muted ? `Quiet ${formatMuteRemaining(t.mutedUntil)}` : "Mute 1 hour"}
+        </Button>
+        <StatusBadge status={t.lastStatus} />
+      </PageHeader>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <GroupBadge name={t.groupName} color={t.groupColor} />
+        <Badge variant="outline">{probeLabel(t.probeType)}</Badge>
+        {data.inMaintenance ? <Badge variant="warning">Maintenance</Badge> : null}
+        {data.openIncident ? <Badge variant="danger">Open incident</Badge> : null}
       </div>
       {data.openIncident || data.inMaintenance ? (
         <div className="grid gap-3 md:grid-cols-2">
@@ -127,6 +135,20 @@ export function TargetDetailsPage() {
           ) : null}
         </div>
       ) : null}
+      <Stagger className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <StaggerItem>
+          <MetricCard label="Latency" value={formatLatency(data.metrics.currentLatency)} icon={Timer} />
+        </StaggerItem>
+        <StaggerItem>
+          <MetricCard label="Average" value={formatLatency(data.metrics.averageLatency)} icon={Activity} />
+        </StaggerItem>
+        <StaggerItem>
+          <MetricCard label="Range" value={`${formatLatency(data.metrics.minLatency)} / ${formatLatency(data.metrics.maxLatency)}`} icon={TrendingUp} />
+        </StaggerItem>
+        <StaggerItem>
+          <MetricCard label="Uptime" value={formatPercent(data.metrics.uptimePercent)} icon={Gauge} tone="success" />
+        </StaggerItem>
+      </Stagger>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader>
@@ -142,18 +164,7 @@ export function TargetDetailsPage() {
             <Row label="Status" value={t.lastStatus} />
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Current metrics</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <Row label="Current latency" value={formatLatency(data.metrics.currentLatency)} />
-            <Row label="Average" value={formatLatency(data.metrics.averageLatency)} />
-            <Row label="Min / Max" value={`${formatLatency(data.metrics.minLatency)} / ${formatLatency(data.metrics.maxLatency)}`} />
-            <Row label="Uptime" value={formatPercent(data.metrics.uptimePercent)} />
-          </CardContent>
-        </Card>
-        <Card className="xl:col-span-2">
+        <Card className="xl:col-span-3">
           <CardHeader>
             <CardTitle>Latency</CardTitle>
           </CardHeader>
@@ -191,10 +202,10 @@ export function TargetDetailsPage() {
                 <p className="text-sm text-muted-foreground">No events yet.</p>
               ) : (
                 data.recentEvents.map((e) => (
-                  <div key={e.id} className="rounded-xl border border-border/70 p-3">
-                    <p className="text-xs uppercase text-muted-foreground">{e.type.replaceAll("_", " ")}</p>
-                    <p className="text-sm">{e.message}</p>
-                    <p className="text-xs text-muted-foreground">{formatDateTime(e.createdAt)}</p>
+                  <div key={e.id} className="rounded-2xl border border-border/70 bg-muted/20 p-3 transition-colors hover:bg-muted/40">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">{e.type.replaceAll("_", " ")}</p>
+                    <p className="mt-1 text-sm">{e.message}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{formatDateTime(e.createdAt)}</p>
                   </div>
                 ))
               )}

@@ -6,6 +6,8 @@ import { TargetForm } from "@/components/TargetForm";
 import { GroupBadge, GroupFilter } from "@/components/GroupFilter";
 import { GroupManager } from "@/components/GroupManager";
 import { EmptyState, Page, PageHeader } from "@/components/app/Page";
+import { TableSkeleton } from "@/components/app/Skeleton";
+import { MotionTableRow } from "@/components/app/Motion";
 import { ConfirmDialog } from "@/components/app/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,14 +22,18 @@ import { formatLatency, formatRelative } from "@/lib/format";
 import { filterTargets, GROUP_ALL } from "@/lib/groups";
 import { isMuted } from "@/lib/mute";
 import { endpointLabel, probeLabel } from "@/lib/probe";
+import { useCachedState } from "@/lib/queryCache";
+import { appleEase } from "@/lib/motion";
 import { toast } from "sonner";
 import { wailsError } from "@/lib/utils";
+import { useReducedMotion } from "motion/react";
 
 export function TargetsPage() {
   const navigate = useNavigate();
+  const reduce = useReducedMotion();
   const refreshKey = useAppStore((s) => s.refreshKey);
-  const [targets, setTargets] = useState<Target[]>([]);
-  const [groups, setGroups] = useState<TargetGroup[]>([]);
+  const [targets, setTargets, hasTargets] = useCachedState<Target[]>("targets", []);
+  const [groups, setGroups] = useCachedState<TargetGroup[]>("groups", []);
   const [groupFilter, setGroupFilter] = useState(GROUP_ALL);
   const [open, setOpen] = useState(false);
   const [groupsOpen, setGroupsOpen] = useState(false);
@@ -123,7 +129,7 @@ export function TargetsPage() {
 
   return (
     <Page>
-      <PageHeader title="Targets" description="Hosts PingPulse will probe on a schedule.">
+      <PageHeader kicker="Fleet" title="Targets" description="Hosts PingPulse will probe on a schedule.">
           <Button variant="outline" size="sm" onClick={() => setGroupsOpen(true)}>
             <FolderPlus className="h-4 w-4" /> Groups
           </Button>
@@ -170,18 +176,42 @@ export function TargetsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {visible.length === 0 ? (
+              {!hasTargets ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="p-0">
+                    <TableSkeleton />
+                  </TableCell>
+                </TableRow>
+              ) : visible.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={9} className="p-0">
                     <EmptyState
                       title={targets.length === 0 ? "No targets yet" : "No targets in this group"}
                       hint={targets.length === 0 ? "Add a host to start probing on a schedule." : "Pick another group or add hosts to this one."}
+                      action={
+                        targets.length === 0 ? (
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setEditing(null);
+                              setOpen(true);
+                            }}
+                          >
+                            Add a target
+                          </Button>
+                        ) : undefined
+                      }
                     />
                   </TableCell>
                 </TableRow>
               ) : (
-                visible.map((t) => (
-                <TableRow key={t.id}>
+                visible.map((t, i) => (
+                <MotionTableRow
+                  key={t.id}
+                  initial={reduce ? false : { opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: Math.min(i, 14) * 0.04, duration: 0.48, ease: appleEase }}
+                >
                   <TableCell className="cursor-pointer font-medium" onClick={() => navigate(`/targets/${t.id}`)}>
                     {t.name}
                     {isMuted(t.mutedUntil) ? <span className="ms-2 text-[10px] uppercase tracking-wider text-amber-600 dark:text-amber-400">muted</span> : null}
@@ -229,8 +259,8 @@ export function TargetsPage() {
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
-                </TableRow>
-              ))
+                </MotionTableRow>
+                ))
               )}
             </TableBody>
           </Table>

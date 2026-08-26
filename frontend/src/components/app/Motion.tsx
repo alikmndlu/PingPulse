@@ -1,41 +1,103 @@
 import type { ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Outlet, useLocation } from "react-router-dom";
-import { appleEase, duration, spring } from "@/lib/motion";
+import { TableRow } from "@/components/ui/table";
+import { appleEase, duration, spring, springPage } from "@/lib/motion";
 import { cn } from "@/lib/utils";
-import { useLaunchDone } from "@/components/app/LaunchScreen";
 
 export function PageTransition() {
   const location = useLocation();
   const reduce = useReducedMotion();
 
   return (
+    <div className="relative">
+      <AnimatePresence initial={false}>
+        <motion.div
+          key={location.pathname}
+          className="will-change-[transform,opacity]"
+          style={{ transformOrigin: "50% 12%" }}
+          initial={reduce ? false : { opacity: 0, y: 28, scale: 0.97, filter: "blur(10px)" }}
+          animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+          exit={
+            reduce
+              ? { opacity: 0 }
+              : {
+                  opacity: 0,
+                  y: -18,
+                  scale: 1.02,
+                  filter: "blur(8px)",
+                  position: "absolute",
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  pointerEvents: "none",
+                }
+          }
+          transition={
+            reduce
+              ? { duration: 0.01 }
+              : {
+                  opacity: { duration: 0.42, ease: appleEase },
+                  filter: { duration: 0.45, ease: appleEase },
+                  y: springPage,
+                  scale: springPage,
+                }
+          }
+        >
+          <Outlet />
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/** Skeleton → content crossfade. Safe to wait here; the page is already mounted. */
+export function Crossfade({
+  ready,
+  skeleton,
+  children,
+}: {
+  ready: boolean;
+  skeleton: ReactNode;
+  children: ReactNode;
+}) {
+  const reduce = useReducedMotion();
+  return (
     <AnimatePresence mode="wait" initial={false}>
-      <motion.div
-        key={location.pathname}
-        initial={reduce ? false : { opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: reduce ? 0.01 : duration.fast, ease: appleEase }}
-      >
-        <Outlet />
-      </motion.div>
+      {ready ? (
+        <motion.div
+          key="content"
+          initial={reduce ? false : { opacity: 0, y: 14, scale: 0.985, filter: "blur(6px)" }}
+          animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+          transition={reduce ? { duration: 0 } : { duration: duration.slow, ease: appleEase }}
+        >
+          {children}
+        </motion.div>
+      ) : (
+        <motion.div
+          key="skeleton"
+          initial={false}
+          exit={reduce ? { opacity: 0 } : { opacity: 0, y: -8, filter: "blur(4px)" }}
+          transition={{ duration: 0.24, ease: appleEase }}
+        >
+          {skeleton}
+        </motion.div>
+      )}
     </AnimatePresence>
   );
 }
 
-export function Stagger({ children, className, delay = 0.03 }: { children: ReactNode; className?: string; delay?: number }) {
+export function Stagger({ children, className, delay = 0.04 }: { children: ReactNode; className?: string; delay?: number }) {
   const reduce = useReducedMotion();
-  const launched = useLaunchDone();
   return (
     <motion.div
       className={className}
       initial="hidden"
-      animate={launched ? "show" : "hidden"}
+      animate="show"
       variants={{
         hidden: {},
         show: {
-          transition: reduce ? { duration: 0 } : { staggerChildren: 0.05, delayChildren: delay },
+          transition: reduce ? { duration: 0 } : { staggerChildren: 0.07, delayChildren: delay },
         },
       }}
     >
@@ -45,12 +107,18 @@ export function Stagger({ children, className, delay = 0.03 }: { children: React
 }
 
 export function StaggerItem({ children, className }: { children: ReactNode; className?: string }) {
+  const reduce = useReducedMotion();
   return (
     <motion.div
-      className={className}
+      className={cn("h-full", className)}
       variants={{
-        hidden: { opacity: 0, y: 12 },
-        show: { opacity: 1, y: 0, transition: { duration: duration.base, ease: appleEase } },
+        hidden: reduce ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 18, scale: 0.97 },
+        show: {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          transition: reduce ? { duration: 0 } : springPage,
+        },
       }}
     >
       {children}
@@ -71,9 +139,9 @@ export function Reveal({
   return (
     <motion.div
       className={className}
-      initial={reduce ? false : { opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: duration.base, delay, ease: appleEase }}
+      initial={reduce ? false : { opacity: 0, y: 16, scale: 0.985 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: duration.slow, delay, ease: appleEase }}
     >
       {children}
     </motion.div>
@@ -108,3 +176,5 @@ export function Collapse({
 }
 
 export { motion, AnimatePresence, spring, appleEase };
+
+export const MotionTableRow = motion(TableRow);

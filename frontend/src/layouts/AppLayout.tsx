@@ -1,5 +1,5 @@
-import { NavLink } from "react-router-dom";
-import { Bell, BellOff, History, LayoutDashboard, Monitor, Moon, Settings, Sun, Server, ShieldCheck, Siren, Wrench } from "lucide-react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { Bell, BellOff, BookOpen, History, LayoutDashboard, Monitor, Moon, Settings, Sun, Server, ShieldCheck, Siren, Wrench } from "lucide-react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { copy } from "@/i18n";
@@ -41,6 +41,7 @@ const nav = [
     label: "System",
     items: [
       { to: "/notifications", label: copy.nav.notifications, icon: Bell },
+      { to: "/help", label: copy.nav.help, icon: BookOpen },
       { to: "/settings", label: copy.nav.settings, icon: Settings },
     ],
   },
@@ -57,6 +58,7 @@ function AppVersion() {
 
 export function AppLayout() {
   useWailsEvents();
+  const navigate = useNavigate();
   const launched = useLaunchDone();
   const monitoring = useAppStore((s) => s.monitoring);
   const paused = useAppStore((s) => s.paused);
@@ -123,10 +125,13 @@ export function AppLayout() {
           initial={{ opacity: 0, x: -14 }}
           animate={launched ? { opacity: 1, x: 0 } : { opacity: 0, x: -14 }}
           transition={{ duration: 0.55, ease: appleEase }}
-          className="flex w-[220px] shrink-0 flex-col border-e border-border/80 bg-sidebar"
+          className="flex w-[220px] shrink-0 flex-col border-e border-border/80 bg-sidebar/90 backdrop-blur-xl"
         >
           <div className="flex items-center gap-2.5 px-5 py-5">
-            <img src="/appicon.png" alt="" className="h-8 w-8 rounded-lg" />
+            <div className="relative">
+              <span className="absolute inset-0 rounded-lg bg-primary/35 blur-md" aria-hidden />
+              <img src="/appicon.png" alt="" className="relative h-8 w-8 rounded-lg" />
+            </div>
             <div className="min-w-0">
               <p className="text-[13px] font-semibold tracking-tight">{copy.appName}</p>
               <p className="text-[11px] text-muted-foreground">Host monitor</p>
@@ -158,7 +163,7 @@ export function AppLayout() {
                               {isActive ? (
                                 <motion.span
                                   layoutId="nav-active"
-                                  className="absolute inset-0 rounded-lg bg-muted"
+                                  className="absolute inset-0 rounded-lg bg-muted shadow-[inset_0_0_0_1px_hsl(var(--foreground)/0.04)]"
                                   transition={spring}
                                 />
                               ) : null}
@@ -189,9 +194,18 @@ export function AppLayout() {
             initial={{ opacity: 0, y: -10 }}
             animate={launched ? { opacity: 1, y: 0 } : { opacity: 0, y: -10 }}
             transition={{ duration: 0.5, ease: appleEase, delay: launched ? 0.06 : 0 }}
-            className="flex h-[52px] items-center justify-between border-b border-border/80 px-6"
+            className="flex h-[52px] items-center justify-between border-b border-border/80 bg-background/70 px-6 backdrop-blur-xl"
           >
-            <div className="inline-flex h-7 items-center gap-2 overflow-hidden rounded-full border border-border/80 bg-muted/40 px-2.5">
+            <div
+              className={cn(
+                "inline-flex h-7 items-center gap-2 overflow-hidden rounded-full border px-2.5",
+                paused
+                  ? "border-amber-500/30 bg-amber-500/10 shadow-[0_0_18px_-6px_rgba(245,158,11,0.7)]"
+                  : monitoring
+                    ? "border-emerald-500/30 bg-emerald-500/10 shadow-[0_0_18px_-6px_rgba(16,185,129,0.7)]"
+                    : "border-border/80 bg-muted/40",
+              )}
+            >
               <span className={cn("h-1.5 w-1.5 rounded-full", statusDot, monitoring && !paused && "animate-pulseDot")} />
               <AnimatePresence mode="wait" initial={false}>
                 <motion.span
@@ -228,6 +242,14 @@ export function AppLayout() {
                 <Monitor className="h-3.5 w-3.5" />
                 {monitoring ? "Stop" : "Start"}
               </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="icon" variant="ghost" onClick={() => void navigate("/help")}>
+                    <BookOpen className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Help</TooltipContent>
+              </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button size="icon" variant="ghost" onClick={() => void toggleTheme()}>

@@ -42,7 +42,7 @@ export function StatusDonut({
       </ResponsiveContainer>
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
         <p className="font-mono text-3xl font-semibold tracking-tight">{total ? `${upPct}%` : "—"}</p>
-        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">online</p>
+        <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">online</p>
       </div>
     </div>
   );

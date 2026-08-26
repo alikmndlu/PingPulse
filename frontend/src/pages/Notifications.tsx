@@ -1,7 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Monitor, Send, Smartphone, Webhook } from "lucide-react";
+import { Monitor, Send, Smartphone, Webhook, Hash, MessageCircle, Users } from "lucide-react";
 import { Page, PageHeader, ToggleRow } from "@/components/app/Page";
-import { Collapse } from "@/components/app/Motion";
+import { CardSkeleton } from "@/components/app/Skeleton";
+import { Collapse, Stagger } from "@/components/app/Motion";
+import { motion, useReducedMotion } from "motion/react";
+import { springPage, springSoft } from "@/lib/motion";
+import { cn, wailsError } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,8 +15,8 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/services/api";
 import type { NotificationConfig, Settings } from "@/types";
+import { peekCache, putCache } from "@/lib/queryCache";
 import { toast } from "sonner";
-import { wailsError } from "@/lib/utils";
 
 type ProviderId = "discord" | "slack" | "teams" | "telegram" | "sms" | "webhook";
 
@@ -51,15 +55,18 @@ function fromConfig(cfg: NotificationConfig): ChannelDraft {
 }
 
 export function NotificationsPage() {
-  const [settings, setSettings] = useState<Settings | null>(null);
-  const [channels, setChannels] = useState<Record<ProviderId, ChannelDraft>>({
-    discord: emptyDraft("discord"),
-    slack: emptyDraft("slack"),
-    teams: emptyDraft("teams"),
-    telegram: emptyDraft("telegram"),
-    sms: emptyDraft("sms"),
-    webhook: emptyDraft("webhook"),
-  });
+  const [settings, setSettings] = useState<Settings | null>(() => peekCache<Settings>("settings") ?? null);
+  const [channels, setChannels] = useState<Record<ProviderId, ChannelDraft>>(
+    () =>
+      peekCache<Record<ProviderId, ChannelDraft>>("notify:channels") ?? {
+        discord: emptyDraft("discord"),
+        slack: emptyDraft("slack"),
+        teams: emptyDraft("teams"),
+        telegram: emptyDraft("telegram"),
+        sms: emptyDraft("sms"),
+        webhook: emptyDraft("webhook"),
+      },
+  );
 
   async function load() {
     try {
@@ -72,15 +79,18 @@ export function NotificationsPage() {
         api.getNotificationConfig("sms"),
         api.getNotificationConfig("webhook"),
       ]);
-      setSettings(s);
-      setChannels({
+      const nextChannels = {
         discord: fromConfig(discord),
         slack: fromConfig(slack),
         teams: fromConfig(teams),
         telegram: fromConfig(telegram),
         sms: fromConfig(sms),
         webhook: fromConfig(webhook),
-      });
+      };
+      putCache("settings", s);
+      putCache("notify:channels", nextChannels);
+      setSettings(s);
+      setChannels(nextChannels);
     } catch (err) {
       toast.error(wailsError(err));
     }
@@ -92,7 +102,9 @@ export function NotificationsPage() {
 
   async function saveSettings(next: Settings) {
     try {
-      setSettings(await api.updateSettings(next));
+      const saved = await api.updateSettings(next);
+      putCache("settings", saved);
+      setSettings(saved);
     } catch (err) {
       toast.error(wailsError(err));
     }
@@ -133,14 +145,17 @@ export function NotificationsPage() {
   if (!settings) {
     return (
       <Page>
-        <p className="text-sm text-muted-foreground">Loading notifications…</p>
+        <PageHeader kicker="System" title="Notifications" description="Choose when PingPulse should alert you, then configure each channel on its own." />
+        <CardSkeleton lines={6} />
+        <CardSkeleton lines={3} />
+        <CardSkeleton lines={3} />
       </Page>
     );
   }
 
   return (
     <Page>
-      <PageHeader title="Notifications" description="Choose when PingPulse should alert you, then configure each channel on its own." />
+      <PageHeader kicker="System" title="Notifications" description="Choose when PingPulse should alert you, then configure each channel on its own." />
 
       <Card>
         <CardHeader>
@@ -157,7 +172,7 @@ export function NotificationsPage() {
         </CardContent>
       </Card>
 
-      <div className="space-y-4">
+      <Stagger className="space-y-4" delay={0.08}>
         <div>
           <h2 className="text-sm font-semibold tracking-tight">Channels</h2>
           <p className="mt-1 text-sm text-muted-foreground">Each channel has its own credentials and message. Secrets stay on this machine and are never shown again after save.</p>
@@ -237,6 +252,7 @@ export function NotificationsPage() {
         <ChannelCard
           title="Discord"
           description="Post alerts to a Discord channel with an incoming webhook."
+          icon={Hash}
           enabled={Boolean(settings.discordEnabled)}
           onEnabledChange={(v) => void saveSettings({ ...settings, discordEnabled: v })}
           onSave={() => void saveChannel("discord")}
@@ -253,6 +269,7 @@ export function NotificationsPage() {
         <ChannelCard
           title="Slack"
           description="Send alerts to a Slack channel with an incoming webhook."
+          icon={MessageCircle}
           enabled={Boolean(settings.slackEnabled)}
           onEnabledChange={(v) => void saveSettings({ ...settings, slackEnabled: v })}
           onSave={() => void saveChannel("slack")}
@@ -269,6 +286,7 @@ export function NotificationsPage() {
         <ChannelCard
           title="Microsoft Teams"
           description="Deliver alerts to a Teams channel with an incoming webhook."
+          icon={Users}
           enabled={Boolean(settings.teamsEnabled)}
           onEnabledChange={(v) => void saveSettings({ ...settings, teamsEnabled: v })}
           onSave={() => void saveChannel("teams")}
@@ -323,7 +341,7 @@ export function NotificationsPage() {
             </Field>
           </Advanced>
         </ChannelCard>
-      </div>
+      </Stagger>
     </Page>
   );
 }
@@ -359,35 +377,54 @@ function ChannelCard({
   onTest?: () => void;
   children?: ReactNode;
 }) {
+  const reduce = useReducedMotion();
   return (
-    <Card>
-      <CardHeader className={`flex-row items-start justify-between gap-4 space-y-0 ${enabled && children ? "" : "pb-5"}`}>
-        <div className="min-w-0 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            {Icon ? <Icon className="h-3.5 w-3.5 text-muted-foreground" /> : null}
-            <CardTitle>{title}</CardTitle>
-            <Badge variant={enabled ? "success" : "muted"}>{enabled ? "On" : "Off"}</Badge>
-          </div>
-          <CardDescription>{description}</CardDescription>
-        </div>
-        <Switch checked={enabled} onCheckedChange={onEnabledChange} />
-      </CardHeader>
-      <Collapse open={enabled && Boolean(children)}>
-        <CardContent className="grid gap-4">
-          {children}
-          {onSave || onTest ? (
-            <div className="flex justify-end gap-2">
-              {onTest ? (
-                <Button variant="outline" onClick={onTest}>
-                  Send test
-                </Button>
+    <motion.div
+      variants={{
+        hidden: reduce ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 18, scale: 0.97 },
+        show: {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          transition: reduce ? { duration: 0 } : springPage,
+        },
+      }}
+      whileHover={reduce ? undefined : { y: -2 }}
+      transition={springSoft}
+    >
+      <Card className={cn("overflow-hidden", enabled && "border-primary/30 bg-primary/5")}>
+        <CardHeader className={`flex-row items-start justify-between gap-4 space-y-0 ${enabled && children ? "" : "pb-5"}`}>
+          <div className="min-w-0 space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              {Icon ? (
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/12 text-primary">
+                  <Icon className="h-3.5 w-3.5" />
+                </span>
               ) : null}
-              {onSave ? <Button onClick={onSave}>Save</Button> : null}
+              <CardTitle>{title}</CardTitle>
+              <Badge variant={enabled ? "success" : "muted"}>{enabled ? "On" : "Off"}</Badge>
             </div>
-          ) : null}
-        </CardContent>
-      </Collapse>
-    </Card>
+            <CardDescription>{description}</CardDescription>
+          </div>
+          <Switch checked={enabled} onCheckedChange={onEnabledChange} />
+        </CardHeader>
+        <Collapse open={enabled && Boolean(children)}>
+          <CardContent className="grid gap-4">
+            {children}
+            {onSave || onTest ? (
+              <div className="flex justify-end gap-2">
+                {onTest ? (
+                  <Button variant="outline" onClick={onTest}>
+                    Send test
+                  </Button>
+                ) : null}
+                {onSave ? <Button onClick={onSave}>Save</Button> : null}
+              </div>
+            ) : null}
+          </CardContent>
+        </Collapse>
+      </Card>
+    </motion.div>
   );
 }
 

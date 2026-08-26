@@ -9,11 +9,13 @@ import { IncidentsPage } from "@/pages/Incidents";
 import { SlaReportPage } from "@/pages/SlaReport";
 import { MaintenancePage } from "@/pages/Maintenance";
 import { NotificationsPage } from "@/pages/Notifications";
+import { HelpPage } from "@/pages/Help";
 import { SettingsPage } from "@/pages/Settings";
 import { useEffect } from "react";
 import { api } from "@/services/api";
 import { applyTheme, useAppStore } from "@/stores/app";
 import { appleEase } from "@/lib/motion";
+import { putCache } from "@/lib/queryCache";
 import { LaunchProvider } from "@/components/app/LaunchScreen";
 
 export default function App() {
@@ -28,16 +30,25 @@ export default function App() {
         setTheme(s.theme);
         applyTheme(s.theme);
         setMutedUntil(s.mutedUntil ?? "");
+        putCache("settings", s);
       })
       .catch(() => applyTheme("dark"));
     void api
       .getMonitoringStatus()
       .then((s) => setMonitoring(s.running, s.paused))
       .catch(() => undefined);
+    void Promise.all([
+      api.getDashboardStats().then((s) => {
+        putCache("dashboard", s);
+        setMonitoring(s.monitoring, s.paused);
+      }),
+      api.getTargets().then((list) => putCache("targets", list ?? [])),
+      api.listGroups().then((g) => putCache("groups", g ?? [])),
+    ]).catch(() => undefined);
   }, [setTheme, setMonitoring, setMutedUntil]);
 
   return (
-    <MotionConfig reducedMotion="user" transition={{ ease: appleEase, duration: 0.38 }}>
+    <MotionConfig reducedMotion="user" transition={{ ease: appleEase, duration: 0.42 }}>
       <LaunchProvider>
         <BrowserRouter>
           <Routes>
@@ -50,6 +61,7 @@ export default function App() {
               <Route path="/maintenance" element={<MaintenancePage />} />
               <Route path="/history" element={<HistoryPage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/help" element={<HelpPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>

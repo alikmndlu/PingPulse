@@ -1,28 +1,34 @@
 import { useEffect, useState } from "react";
 import { Download, FileSpreadsheet, Printer, AlertOctagon, CheckCircle2, Clock, Activity, RefreshCw } from "lucide-react";
 import { EmptyState, Page, PageHeader } from "@/components/app/Page";
+import { MetricSkeletonGrid, TableSkeleton } from "@/components/app/Skeleton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { MetricCard } from "@/components/MetricCard";
+import { Crossfade, Stagger, StaggerItem } from "@/components/app/Motion";
+import { motion } from "motion/react";
+import { appleEase } from "@/lib/motion";
 import { api } from "@/services/api";
 import type { SlaReport } from "@/types";
 import { formatDuration } from "@/lib/probe";
 import { formatPercent } from "@/lib/format";
 import { downloadText, printHtml } from "@/lib/reportExport";
+import { useCachedState } from "@/lib/queryCache";
 import { toast } from "sonner";
 import { wailsError } from "@/lib/utils";
 
 export function SlaReportPage() {
   const [period, setPeriod] = useState("30d");
   const [slaTarget, setSlaTarget] = useState("99.9");
-  const [report, setReport] = useState<SlaReport | null>(null);
+  const slaKey = `sla:${period}:${slaTarget}`;
+  const [report, setReport, hasReport] = useCachedState<SlaReport | null>(slaKey, null);
   const [loading, setLoading] = useState(false);
 
   async function load() {
-    setLoading(true);
+    if (!hasReport) setLoading(true);
     try {
       setReport(await api.getSlaReport(period, Number(slaTarget)));
     } catch (err) {
@@ -80,7 +86,7 @@ export function SlaReportPage() {
 
   return (
     <Page>
-      <PageHeader title="SLA reports" description="Uptime against a chosen SLA, error budget, MTBF, and MTTR from recorded incidents.">
+      <PageHeader kicker="Reliability" title="SLA reports" description="Uptime against a chosen SLA, error budget, MTBF, and MTTR from recorded incidents.">
           <Button variant="outline" size="sm" onClick={exportCsv} disabled={!report}>
             <FileSpreadsheet className="h-4 w-4" />
             Export CSV
@@ -127,12 +133,22 @@ export function SlaReportPage() {
           </Button>
         </CardContent>
       </Card>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Overall uptime" value={formatPercent(report?.overallUptime ?? 0)} icon={Activity} tone={(report?.overallUptime ?? 0) >= Number(slaTarget) ? "success" : "danger"} />
-        <MetricCard label="Compliant" value={`${report?.compliantCount ?? 0} / ${report?.targets.length ?? 0}`} icon={CheckCircle2} tone="success" />
-        <MetricCard label="SLA breaches" value={report?.breachedCount ?? 0} icon={AlertOctagon} tone={(report?.breachedCount ?? 0) > 0 ? "danger" : "default"} />
-        <MetricCard label="Error budget used" value={`${report?.consumedErrorBudgetHours ?? 0}h / ${report?.totalErrorBudgetHours ?? 0}h`} icon={Clock} tone={(report?.consumedErrorBudgetHours ?? 0) > 0 ? "warning" : "default"} />
-      </div>
+      <Crossfade ready={hasReport} skeleton={<MetricSkeletonGrid count={4} />}>
+      <Stagger className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StaggerItem>
+          <MetricCard label="Overall uptime" value={formatPercent(report?.overallUptime ?? 0)} icon={Activity} tone={(report?.overallUptime ?? 0) >= Number(slaTarget) ? "success" : "danger"} />
+        </StaggerItem>
+        <StaggerItem>
+          <MetricCard label="Compliant" value={`${report?.compliantCount ?? 0} / ${report?.targets.length ?? 0}`} icon={CheckCircle2} tone="success" />
+        </StaggerItem>
+        <StaggerItem>
+          <MetricCard label="SLA breaches" value={report?.breachedCount ?? 0} icon={AlertOctagon} tone={(report?.breachedCount ?? 0) > 0 ? "danger" : "default"} />
+        </StaggerItem>
+        <StaggerItem>
+          <MetricCard label="Error budget used" value={`${report?.consumedErrorBudgetHours ?? 0}h / ${report?.totalErrorBudgetHours ?? 0}h`} icon={Clock} tone={(report?.consumedErrorBudgetHours ?? 0) > 0 ? "warning" : "default"} />
+        </StaggerItem>
+      </Stagger>
+      </Crossfade>
       <Card>
         <CardHeader>
           <CardTitle>By target</CardTitle>
@@ -153,7 +169,13 @@ export function SlaReportPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(report?.targets ?? []).length === 0 ? (
+              {!hasReport ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="p-0">
+                    <TableSkeleton rows={4} />
+                  </TableCell>
+                </TableRow>
+              ) : (report?.targets ?? []).length === 0 ? (
                 <TableRow>
                     <TableCell colSpan={9} className="p-0">
                       <EmptyState title="No targets yet" hint="Add hosts on the Targets page to compute SLA." />
@@ -172,9 +194,11 @@ export function SlaReportPage() {
                     <TableCell className="font-mono">{formatDuration(row.actualDowntimeSec)}</TableCell>
                     <TableCell>
                       <div className="h-2 min-w-[60px] overflow-hidden rounded-full bg-secondary">
-                        <div
+                        <motion.div
                           className={`h-full ${row.errorBudgetRemainingPercent > 50 ? "bg-emerald-500" : row.errorBudgetRemainingPercent > 20 ? "bg-amber-500" : "bg-rose-500"}`}
-                          style={{ width: `${Math.max(4, Math.min(100, row.errorBudgetRemainingPercent))}%` }}
+                          initial={false}
+                          animate={{ width: `${Math.max(4, Math.min(100, row.errorBudgetRemainingPercent))}%` }}
+                          transition={{ duration: 0.7, ease: appleEase }}
                         />
                       </div>
                       <span className="text-[10px] text-muted-foreground">{row.errorBudgetRemainingPercent}%</span>

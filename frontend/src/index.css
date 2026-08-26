@@ -64,6 +64,9 @@
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "cv11", "ss01";
     letter-spacing: -0.011em;
+    background-image:
+      radial-gradient(1200px 480px at 12% -8%, hsl(var(--primary) / 0.07), transparent 55%),
+      radial-gradient(900px 420px at 100% 0%, hsl(var(--primary) / 0.04), transparent 50%);
   }
 
   ::selection {
@@ -94,8 +97,41 @@ number-flow {
     opacity: 1;
   }
 
+  .skeleton-bone::after {
+    animation: none !important;
+  }
+
   number-flow {
     --number-flow-mask-height: 0;
+  }
+}
+
+.skeleton-bone {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.625rem;
+  background: hsl(var(--muted) / 0.65);
+}
+
+.skeleton-bone::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    hsl(var(--foreground) / 0.045) 40%,
+    hsl(var(--foreground) / 0.1) 50%,
+    hsl(var(--foreground) / 0.045) 60%,
+    transparent 100%
+  );
+  animation: skeletonShimmer 1.7s ease-in-out infinite;
+}
+
+@keyframes skeletonShimmer {
+  100% {
+    transform: translateX(100%);
   }
 }
 

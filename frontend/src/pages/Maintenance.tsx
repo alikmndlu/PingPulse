@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Calendar, Wrench, Shield } from "lucide-react";
 import { EmptyState, Page, PageHeader } from "@/components/app/Page";
+import { MetricSkeleton, TableSkeleton } from "@/components/app/Skeleton";
+import { MetricCard } from "@/components/MetricCard";
+import { Crossfade, Stagger, StaggerItem } from "@/components/app/Motion";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +18,7 @@ import { useAppStore } from "@/stores/app";
 import type { CreateMaintenanceInput, MaintenanceWindow, Target, TargetGroup } from "@/types";
 import { formatDateTime } from "@/lib/format";
 import { fromLocalInputValue, toLocalInputValue } from "@/lib/probe";
+import { useCachedState } from "@/lib/queryCache";
 import { toast } from "sonner";
 import { wailsError } from "@/lib/utils";
 
@@ -22,9 +26,9 @@ const SCOPE_ALL = "__all__";
 
 export function MaintenancePage() {
   const refreshKey = useAppStore((s) => s.refreshKey);
-  const [items, setItems] = useState<MaintenanceWindow[]>([]);
-  const [targets, setTargets] = useState<Target[]>([]);
-  const [groups, setGroups] = useState<TargetGroup[]>([]);
+  const [items, setItems, hasItems] = useCachedState<MaintenanceWindow[]>("maintenance", []);
+  const [targets, setTargets] = useCachedState<Target[]>("targets", []);
+  const [groups, setGroups] = useCachedState<TargetGroup[]>("groups", []);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
@@ -82,31 +86,33 @@ export function MaintenancePage() {
 
   return (
     <Page>
-      <PageHeader title="Maintenance" description="Pause checks or silence alerts for planned work.">
+      <PageHeader kicker="Reliability" title="Maintenance" description="Pause checks or silence alerts for planned work.">
         <Button size="sm" onClick={() => setOpen(true)}>
           <Plus className="h-4 w-4" /> Schedule window
         </Button>
       </PageHeader>
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle>Windows</CardTitle>
-            <CardDescription>{items.length} configured</CardDescription>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Active now</CardTitle>
-            <CardDescription>{activeCount}</CardDescription>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Default behavior</CardTitle>
-            <CardDescription>Skip probes and suppress notifications while a covering window is active.</CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
+      <Crossfade
+        ready={hasItems}
+        skeleton={
+          <div className="grid items-stretch gap-3 md:grid-cols-3">
+            <MetricSkeleton />
+            <MetricSkeleton />
+            <MetricSkeleton />
+          </div>
+        }
+      >
+      <Stagger className="grid items-stretch gap-3 md:grid-cols-3">
+        <StaggerItem>
+          <MetricCard label="Windows" value={items.length} icon={Calendar} />
+        </StaggerItem>
+        <StaggerItem>
+          <MetricCard label="Active now" value={activeCount} icon={Wrench} tone={activeCount > 0 ? "warning" : "default"} />
+        </StaggerItem>
+        <StaggerItem>
+          <MetricCard label="Default" value="Skip + quiet" icon={Shield} />
+        </StaggerItem>
+      </Stagger>
+      </Crossfade>
       <Card>
         <CardContent className="pt-5">
           <Table>
@@ -122,10 +128,24 @@ export function MaintenancePage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {items.length === 0 ? (
+              {!hasItems ? (
                 <TableRow>
                     <TableCell colSpan={7} className="p-0">
-                      <EmptyState title="No maintenance windows yet" hint="Schedule a window to skip probes or quiet alerts during planned work." />
+                      <TableSkeleton />
+                    </TableCell>
+                </TableRow>
+              ) : items.length === 0 ? (
+                <TableRow>
+                    <TableCell colSpan={7} className="p-0">
+                      <EmptyState
+                        title="No maintenance windows yet"
+                        hint="Schedule a window to skip probes or quiet alerts during planned work."
+                        action={
+                          <Button size="sm" onClick={() => setOpen(true)}>
+                            Schedule window
+                          </Button>
+                        }
+                      />
                     </TableCell>
                 </TableRow>
               ) : (

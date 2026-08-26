@@ -54,9 +54,16 @@ export default {
           "0%, 100%": { opacity: 1, transform: "scale(1)" },
           "50%": { opacity: 0.45, transform: "scale(1.35)" },
         },
+        skeletonShimmer: {
+          "100%": { transform: "translateX(100%)" },
+        },
       },
       animation: {
         pulseDot: "pulseDot 1.6s ease-in-out infinite",
+        skeletonShimmer: "skeletonShimmer 1.45s ease-in-out infinite",
+      },
+      transitionTimingFunction: {
+        ios: "cubic-bezier(0.32, 0.72, 0, 1)",
       },
     },
   },

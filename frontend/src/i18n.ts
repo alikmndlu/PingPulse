@@ -9,6 +9,7 @@ export const copy = {
     sla: "SLA",
     maintenance: "Maintenance",
     notifications: "Notifications",
+    help: "Help",
     settings: "Settings",
   },
   monitoring: {

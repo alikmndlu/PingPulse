@@ -8,6 +8,7 @@ export const duration = {
   fast: 0.22,
   base: 0.38,
   slow: 0.56,
+  page: 0.52,
 } as const;
 
 export const spring: Transition = {
@@ -22,6 +23,14 @@ export const springSoft: Transition = {
   stiffness: 280,
   damping: 34,
   mass: 0.9,
+};
+
+/** iOS page push — snappy start, long settle. */
+export const springPage: Transition = {
+  type: "spring",
+  stiffness: 360,
+  damping: 34,
+  mass: 0.88,
 };
 
 export const tween = (ms: keyof typeof duration = "base"): Transition => ({

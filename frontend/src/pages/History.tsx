@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { EmptyState, Page, PageHeader } from "@/components/app/Page";
+import { TableSkeleton } from "@/components/app/Skeleton";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,14 +12,14 @@ import { api } from "@/services/api";
 import { useAppStore } from "@/stores/app";
 import type { HistoryPage, Target } from "@/types";
 import { formatDateTime, formatLatency } from "@/lib/format";
+import { useCachedState } from "@/lib/queryCache";
 import { toast } from "sonner";
 import { wailsError } from "@/lib/utils";
 
 export function HistoryPage() {
   const [params] = useSearchParams();
   const refreshKey = useAppStore((s) => s.refreshKey);
-  const [targets, setTargets] = useState<Target[]>([]);
-  const [page, setPage] = useState<HistoryPage | null>(null);
+  const [targets, setTargets] = useCachedState<Target[]>("targets", []);
   const [targetId, setTargetId] = useState(params.get("target") ?? "all");
   const [status, setStatus] = useState("all");
   const [search, setSearch] = useState("");
@@ -37,6 +38,10 @@ export function HistoryPage() {
     }),
     [targetId, status, search, from, to],
   );
+  const [page, setPage, hasPage] = useCachedState<HistoryPage | null>(
+    `history:${filter.targetId}:${filter.status}:${filter.from}:${filter.to}`,
+    null,
+  );
 
   async function load() {
     try {
@@ -54,7 +59,7 @@ export function HistoryPage() {
 
   return (
     <Page>
-      <PageHeader title="History" description="Every stored ping result, filterable by host and outcome." />
+      <PageHeader kicker="Log" title="History" description="Every stored ping result, filterable by host and outcome." />
       <Card>
         <CardHeader>
           <CardTitle>Filters</CardTitle>
@@ -105,14 +110,20 @@ export function HistoryPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(page?.items ?? []).length === 0 ? (
+              {!hasPage || page === null ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="p-0">
+                    <TableSkeleton />
+                  </TableCell>
+                </TableRow>
+              ) : (page.items ?? []).length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="p-0">
                     <EmptyState title="No results" hint="Adjust filters or wait for the next probe cycle." />
                   </TableCell>
                 </TableRow>
               ) : (
-                (page?.items ?? []).map((item) => {
+                (page.items ?? []).map((item) => {
                 const target = targets.find((t) => t.id === item.targetId);
                 return (
                   <TableRow key={item.id}>
