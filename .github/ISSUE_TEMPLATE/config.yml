@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/alikmndlu/PingPulse/security/advisories/new
+    about: Report a security issue privately. Do not file a public issue.
+  - name: Download PingPulse
+    url: https://github.com/alikmndlu/PingPulse/releases/latest
+    about: Installers for Windows, macOS, and Linux.

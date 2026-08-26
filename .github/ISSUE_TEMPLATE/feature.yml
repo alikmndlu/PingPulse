@@ -1,0 +1,27 @@
+name: Feature request
+description: Suggest a change to monitoring, alerts, or the desktop app.
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: PingPulse stays a local desktop app. Features that require a cloud account or a hosted agent are out of scope.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      placeholder: Who is stuck today, and how?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      placeholder: What the app should do instead. Keep it as small as you can.
+    validations:
+      required: true
+  - type: textarea
+    id: extras
+    attributes:
+      label: Extra context (optional)
+      placeholder: Screenshots, similar tools, or why another approach is worse.

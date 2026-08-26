@@ -8,14 +8,14 @@
   "frontend:dev:serverUrl": "auto",
   "wailsjsdir": "./frontend",
   "author": {
-    "name": "PingPulse",
-    "email": ""
+    "name": "Ali Kamandlu",
+    "email": "alikmndlu1@gmail.com"
   },
   "info": {
     "companyName": "PingPulse",
     "productName": "PingPulse",
-    "productVersion": "2.0.0",
-    "copyright": "Copyright © PingPulse",
+    "productVersion": "2.1.1",
+    "copyright": "Copyright © 2026 Ali Kamandlu",
     "comments": "Know when your infrastructure goes silent."
   }
 }

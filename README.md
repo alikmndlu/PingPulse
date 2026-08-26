@@ -4,40 +4,110 @@
 
 **Know when your infrastructure goes silent.**
 
-A personal, cross-platform desktop monitor for IPs and hostnames.
-Ping on a schedule. Catch real outages. Alert on your terms.
+A personal desktop monitor for the hosts you actually care about.
+Ping on a schedule. Catch real outages. Alert on your terms. Data stays on your machine.
 
+[![Release](https://img.shields.io/github/v/release/alikmndlu/PingPulse?style=flat-square&label=release)](https://github.com/alikmndlu/PingPulse/releases/latest)
+[![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-111827?style=flat-square)](https://github.com/alikmndlu/PingPulse/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-22c55e?style=flat-square)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.25-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev)
 [![Wails](https://img.shields.io/badge/Wails-v2.15-red?style=flat-square)](https://wails.io)
-[![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![Release](https://img.shields.io/github/v/release/alikmndlu/PingPulse?style=flat-square&label=release)](https://github.com/alikmndlu/PingPulse/releases/latest)
-[![License: MIT](https://img.shields.io/badge/license-MIT-22c55e?style=flat-square)](LICENSE)
-[![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-111827?style=flat-square)](https://github.com/alikmndlu/PingPulse/releases)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa?style=flat-square)](CODE_OF_CONDUCT.md)
 
-[Download](https://github.com/alikmndlu/PingPulse/releases/latest) · [Source](https://github.com/alikmndlu/PingPulse) · [Report an issue](https://github.com/alikmndlu/PingPulse/issues)
+[Download](https://github.com/alikmndlu/PingPulse/releases/latest)
+· [Changelog](CHANGELOG.md)
+· [Contributing](CONTRIBUTING.md)
+· [Security](SECURITY.md)
+· [Code of Conduct](CODE_OF_CONDUCT.md)
+· [License](LICENSE)
 
 </div>
 
 ---
 
-PingPulse is a native desktop app — not a SaaS, not a cloud agent, not a browser tab you forget to refresh. It lives in the system tray, probes your hosts with **ICMP**, **HTTP**, or **TCP**, stores history locally in SQLite, and can wake you through desktop toasts, SMS, webhooks, or Telegram.
+PingPulse is a **native desktop app** — not a SaaS, not a cloud agent, not a browser tab you forget to refresh. It lives in the system tray, probes your hosts with **ICMP**, **HTTP**, or **TCP**, stores history locally in SQLite, and can wake you through desktop toasts, SMS, webhooks, Telegram, Discord, Slack, or Teams.
 
 Built for people who run their own boxes and want to know the moment one of them goes quiet.
 
-## What's new in 2.0
+**Current release: [v2.1.1](https://github.com/alikmndlu/PingPulse/releases/latest)** — installers for Windows, macOS, and Linux, plus in-app updates that follow those installs.
 
-**v2.0.0** is the cross-platform Wails desktop build again (Go backend + React UI under `frontend/`), with the operational features that ship in this tree:
+## Contents
 
-- **Multi-probe targets** — ICMP ping, HTTP status checks, and TCP port dials on one list (same host can have more than one probe)
-- **Groups** — color labels, dashboard filters, and group names in JSON/CSV import-export
-- **Maintenance windows** — scope to all targets, one group, or one target; suppress checks and/or notifications
-- **Incidents** — open on offline, close on recovery; downtime, MTTR, and per-target uptime on the Incidents page
-- **Quiet hours** — global mute (Quiet 1 hour) and per-target mute without stopping probes
-- **In-app updates** — check and install from GitHub Releases
-- **Release CI** — tagged `v*` pushes Windows setup, macOS DMG, Linux `.deb`/`.rpm`, and updater archives
+- [Install](#install)
+- [Why PingPulse](#why-pingpulse)
+- [What's new in 2.1](#whats-new-in-21)
+- [Features](#features)
+- [Using the app](#using-the-app)
+- [Probe notes](#probe-notes)
+- [Notifications](#notifications)
+- [Data, config, and logs](#data-config-and-logs)
+- [In-app updates](#in-app-updates)
+- [Architecture](#architecture)
+- [Develop from source](#develop-from-source)
+- [Community](#community)
 
-Product version is stamped in `internal/updater/version.go`, `wails.json`, and `build/windows/info.json` (**2.0.0**).
+## Install
+
+Grab the latest asset for your OS from **[Releases](https://github.com/alikmndlu/PingPulse/releases/latest)**. Verify the download against `SHA256SUMS.txt` in that release.
+
+| OS | Install with | Then |
+| --- | --- | --- |
+| Windows x64 | `PingPulse-<tag>-windows-amd64-setup.exe` | Run the installer. Start Menu, desktop shortcut, and Uninstall are registered. |
+| macOS universal | `PingPulse-<tag>-darwin-universal.dmg` | Open the disk image and drag `PingPulse.app` to Applications. |
+| Linux (Debian / Ubuntu) | `PingPulse-<tag>-linux-amd64.deb` | `sudo apt install ./PingPulse-<tag>-linux-amd64.deb` |
+| Linux (Fedora) | `PingPulse-<tag>-linux-amd64.rpm` | `sudo dnf install ./PingPulse-<tag>-linux-amd64.rpm` |
+
+Coming from **v1.x**: install 2.1.1 by hand once. After that, later versions can update themselves.
+
+### Windows
+
+Use the **setup.exe**. That is not a portable zip. The `.zip` on the release is only what Settings → Install update downloads later. The app lives under `%LOCALAPPDATA%\Programs\PingPulse`.
+
+Builds are not Authenticode-signed yet. SmartScreen may warn; that is expected.
+
+### macOS
+
+Use the **`.dmg`**. Drag the app to Applications so later in-app updates can replace it. The `.tar.gz` is only the updater payload. Do not keep running PingPulse from a read-only disk image.
+
+These builds are unsigned (no Apple Developer ID / notarization yet), so Gatekeeper will block the first launch. That warning is expected.
+
+1. In the **"PingPulse" Not Opened** dialog, click **Done** — not Move to Trash.
+2. Open **System Settings → Privacy & Security**.
+3. Scroll to **Security**. Next to *“PingPulse was blocked…”* click **Open Anyway**.
+4. Confirm, then open `PingPulse.app` again.
+
+Or strip the download quarantine and launch from Terminal:
+
+```bash
+xattr -cr /Applications/PingPulse.app
+open /Applications/PingPulse.app
+```
+
+### Linux
+
+Packages install to `/opt/pingpulse`, add a desktop entry, and a `pingpulse` command. Later in-app updates open the new `.deb` or `.rpm`. The `.tar.gz` is a portable copy for a writable folder such as `~/.local/bin`.
+
+Linux builds target **WebKitGTK 4.1** (Ubuntu 24.04+, Fedora 40+, Debian 12+). The packages pull those libraries in. For a tarball:
+
+```bash
+# Debian / Ubuntu 24.04+
+sudo apt install libgtk-3-0 libwebkit2gtk-4.1-0
+
+# Fedora 40+
+sudo dnf install gtk3 webkit2gtk4.1
+```
+
+### First-run check
+
+Do this once with a GitHub Release asset, not `wails dev`. That is where long-lived bugs show up.
+
+1. Install with the setup, DMG, or `.deb` / `.rpm`
+2. Enable **Start application on boot**
+3. Confirm the tray icon, then hide the window
+4. Keep or add an ICMP target
+5. Notifications → Telegram → **Send test**
+6. Header **Quiet** → a short custom time, then unmute
+7. Settings → **Check for updates** (install only works on a packaged build)
 
 ## Why PingPulse
 
@@ -50,6 +120,21 @@ Most “uptime” tools assume a server, an account, and a monthly invoice. Ping
 | Own the data | Local SQLite, WAL mode, no telemetry |
 | Get alerted without giving a vendor your network | Desktop, SMS, webhook, Telegram, Discord, Slack, Teams |
 | Ship it to three operating systems | One Wails codebase, tagged GitHub Releases |
+
+## What's new in 2.1
+
+**v2.1.1** is the release you should install. Full notes: [CHANGELOG](CHANGELOG.md).
+
+- **Real installers** — Windows setup, macOS DMG, Linux `.deb` / `.rpm`
+- **Updates that match the install** — replace in place when the folder is writable; open the next Linux package when PingPulse lives under `/opt`
+- **Backup and restore** of the local database from Settings
+- **Quiet** for 1 hour, 8 hours, tomorrow morning, or a custom time
+- **History retention** of 7 / 30 / 90 days (incidents are kept)
+- Motion, launch intro, and a quieter desktop UI
+
+**v2.0.0** brought the cross-platform Wails app: ICMP / HTTP / TCP, groups, maintenance, incidents, SLA, and in-app updates.
+
+Product version is stamped in `internal/updater/version.go`, `wails.json`, and `build/windows/info.json` (**2.1.1**).
 
 ## Features
 
@@ -89,170 +174,6 @@ Most “uptime” tools assume a server, an account, and a monthly invoice. Ping
 - Discord, Slack, and Microsoft Teams incoming webhooks
 - Per-kind cooldown so the same alert does not fire every interval
 
-## Architecture
-
-The React UI never talks to SQLite or ICMP. Wails bindings on `App` are the only bridge. The engine, scheduler, notifications, and database are independent Go packages.
-
-```mermaid
-flowchart LR
-  subgraph UI["Frontend"]
-    React["React + TypeScript<br/>Tailwind · shadcn/ui"]
-  end
-
-  subgraph Shell["Wails v2"]
-    Bind["App bindings"]
-    Events["Events"]
-  end
-
-  subgraph Core["Go backend"]
-    Sched["Scheduler"]
-    Engine["Probe engine"]
-    ICMP["ICMP / HTTP / TCP"]
-    Hub["Notification hub"]
-    Repo["Repositories"]
-    DB[("SQLite WAL")]
-    Tray["System tray"]
-    Upd["Updater"]
-  end
-
-  React --> Bind
-  Bind --> Sched
-  Bind --> Hub
-  Bind --> Repo
-  Bind --> Upd
-  Sched --> Engine
-  Engine --> ICMP
-  Engine --> Repo
-  Engine --> Hub
-  Repo --> DB
-  Engine --> Events
-  Hub --> Events
-  Events --> React
-  Tray --> Bind
-```
-
-```
-internal/
-  domain/          entities, validation, event names, mute helpers
-  database/        SQLite open + SQL migrations
-  repository/      targets, results, events, settings, notifications, groups, incidents, maintenance
-  monitor/         ICMP/HTTP/TCP probers, status evaluator, check engine, maintenance + incidents
-  scheduler/       one goroutine per enabled target, context cancellation
-  notification/    provider interface + desktop / SMS / webhook / Telegram / Discord / Slack / Teams
-  autostart/       Windows Run key, macOS LaunchAgent, Linux .desktop
-  tray/            systray menu, offline count on the tooltip
-  updater/         GitHub latest-release check + self-replace
-  logging/         slog JSON + secret redaction
-  config/          per-OS user data paths
-  impex/           JSON / CSV import-export
-  appicon/         generated pulse icon
-
-frontend/src/
-  pages/           Dashboard, Targets, Incidents, Maintenance, History, Notifications, Settings
-  components/      charts, groups, forms, shadcn primitives
-  stores/          zustand (theme, monitoring, mute, refresh)
-  services/api.ts  typed Wails wrappers
-```
-
-Startup path:
-
-1. Resolve the user data directory and open `pingpulse.db`
-2. Apply pending SQL migrations
-3. Load settings, optionally enable autostart and start the scheduler
-4. Start the tray
-5. Frontend subscribes to live Wails events
-
-## Quick start
-
-### Download a build
-
-Grab the latest asset for your OS from **[Releases](https://github.com/alikmndlu/PingPulse/releases/latest)**.
-
-| OS | Asset | Run |
-| --- | --- | --- |
-| Windows x64 | `PingPulse-<tag>-windows-amd64-setup.exe` | Run the installer (Start Menu + Uninstall). In-app updates replace that install. |
-| macOS universal | `PingPulse-<tag>-darwin-universal.dmg` | Open the disk image and drag `PingPulse.app` to Applications |
-| Linux (Debian / Ubuntu) | `PingPulse-<tag>-linux-amd64.deb` | `sudo apt install ./PingPulse-<tag>-linux-amd64.deb` |
-| Linux (Fedora) | `PingPulse-<tag>-linux-amd64.rpm` | `sudo dnf install ./PingPulse-<tag>-linux-amd64.rpm` |
-
-Windows first install is **not** portable. Use the setup.exe. The `.zip` is only what Settings → Install update downloads later.
-
-macOS first install is the **`.dmg`**. Drag the app to Applications so later in-app updates can replace it. The `.tar.gz` is only the updater payload.
-
-Linux packages install to `/opt/pingpulse`, add a desktop entry, and a `pingpulse` command. Later in-app updates open the new `.deb` or `.rpm`. The `.tar.gz` is a portable copy for a writable folder such as `~/.local/bin`; in-app update can replace that copy directly.
-
-Linux builds are linked against **WebKitGTK 4.1** (Ubuntu 24.04+, Fedora 40+, Debian 12+). The packages pull those libraries in. For a tarball:
-
-```bash
-# Debian / Ubuntu 24.04+
-sudo apt install libgtk-3-0 libwebkit2gtk-4.1-0
-
-# Fedora 40+
-sudo dnf install gtk3 webkit2gtk4.1
-```
-
-macOS builds are unsigned (no Apple Developer ID / notarization yet), so Gatekeeper will block the first launch. That warning is expected.
-
-1. In the **"PingPulse" Not Opened** dialog, click **Done** — not Move to Trash.
-2. Open **System Settings → Privacy & Security**.
-3. Scroll to **Security**. Next to *“PingPulse was blocked…”* click **Open Anyway**.
-4. Confirm, then open `PingPulse.app` again.
-
-Or strip the download quarantine and launch from Terminal:
-
-```bash
-xattr -cr /Applications/PingPulse.app
-open /Applications/PingPulse.app
-```
-
-### Verify a packaged build
-
-Do this once with a GitHub Release asset, not `wails dev`. That is where long-lived bugs show up.
-
-1. Run the Windows setup, open the macOS disk image and drag the app to Applications, or install the Linux `.deb` / `.rpm`
-2. Enable **Start application on boot**
-3. Confirm the tray icon, then hide the window
-4. Keep or add an ICMP target
-5. Notifications → Telegram → **Send test**
-6. Header **Quiet** → a short custom time, then unmute
-7. Settings → **Check for updates** (install only works on a packaged build)
-
-If you are coming from **v1.x**, install this build manually first. After that, in-app updates work.
-
-### Develop from source
-
-**Requirements**
-
-| Tool | Version |
-| --- | --- |
-| Go | 1.25+ |
-| Node.js | 24+ |
-| pnpm | 10+ |
-| Wails CLI | v2.15.0 |
-| C compiler | MinGW-w64 (Windows), Xcode CLT (macOS), `gcc` (Linux) |
-
-Linux also needs `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, and `libayatana-appindicator3-dev`. Windows needs WebView2 (already present on recent Windows 10/11). CGO is required for the Wails shell; SQLite itself is pure Go (`modernc.org/sqlite`).
-
-```bash
-git clone https://github.com/alikmndlu/PingPulse.git
-cd PingPulse
-
-go install github.com/wailsapp/wails/v2/cmd/wails@v2.15.0
-go mod download
-cd frontend && pnpm install && cd ..
-
-wails dev
-```
-
-`wails dev` starts the Go backend, Vite, and hot reload. Bindings land in `frontend/wailsjs`.
-
-Frontend-only (no live ping engine):
-
-```bash
-cd frontend
-pnpm dev
-```
-
 ## Using the app
 
 | Screen | What it is for |
@@ -265,7 +186,7 @@ pnpm dev
 | **Maintenance** | Schedule windows with scope and suppress checks / notifications |
 | **History** | Every stored probe result, filterable |
 | **Notifications** | Provider credentials, templates, test send, alert kinds |
-| **Settings** | Defaults, thresholds, theme, logging, autostart, tray, in-app updates |
+| **Settings** | Defaults, thresholds, theme, logging, autostart, tray, backup, in-app updates |
 
 **Quiet 1 hour** in the header mutes every channel globally. The same mute exists per target. Mutes expire automatically; they do not stop pinging, they only suppress alerts.
 
@@ -330,15 +251,7 @@ API keys live in SQLite on the local machine. They are never returned to the UI 
 
 `{{name}}` `{{host}}` `{{status}}` `{{failures}}` `{{latency}}` `{{lastSuccess}}` `{{time}}` `{{title}}` `{{body}}` `{{kind}}`
 
-### Adding a provider
-
-1. Implement `notification.Provider` under `internal/notification`.
-2. Register it in `app.go` when constructing `notification.NewHub(...)`.
-3. Add an enable flag on `domain.Settings` if the user should toggle it.
-4. Persist extra fields through `NotificationRepository` if needed.
-5. Expose the config through the existing Wails methods (or a small additive one).
-
-Keep HTTP timeouts on the client. Never log secrets.
+To add a provider, see [Contributing](CONTRIBUTING.md#adding-a-notification-provider).
 
 ## Data, config, and logs
 
@@ -381,15 +294,15 @@ Settings → **Check for updates** calls the public GitHub Releases API for [`al
 - If the install folder is writable, replaces the running binary (or the `.app` on macOS) and restarts
 - If Linux was installed as a system package (`/opt/pingpulse`), downloads the matching `.deb` or `.rpm` and opens it with the desktop installer
 
-On Windows, first install with **`windows-amd64-setup.exe`**. That puts PingPulse in `%LOCALAPPDATA%\Programs\PingPulse`, adds Start Menu / desktop shortcuts, and an Uninstall entry. Later in-app updates overwrite that same `PingPulse.exe`. A zip extracted to Downloads will also self-replace, but shortcuts and Uninstall will not exist.
+On Windows, first install with **`windows-amd64-setup.exe`**. Later in-app updates overwrite that same `PingPulse.exe`.
 
 On macOS, first install from the **`.dmg`** into `/Applications`. In-app update cannot replace a copy still sitting on a read-only disk image.
 
 On Linux, first install the **`.deb`** or **`.rpm`**. In-app update then opens the next package. A tarball in a home folder updates in place.
 
-`wails dev` can *check*, but will not *install* — the process is a throwaway build. **If you are on v1.x (or any build without the updater), install the newest GitHub Release by hand once.** After that, later versions can update themselves.
+`wails dev` can *check*, but will not *install*. **If you are on v1.x, install v2.1.1 by hand once.** After that, later versions can update themselves.
 
-Each release also attaches `SHA256SUMS.txt`. Builds are not Authenticode-signed or Apple-notarized yet; SmartScreen and Gatekeeper warnings are expected.
+Each release attaches `SHA256SUMS.txt`. Builds are not Authenticode-signed or Apple-notarized yet; SmartScreen and Gatekeeper warnings are expected.
 
 Release CI stamps the version into the binary:
 
@@ -397,72 +310,49 @@ Release CI stamps the version into the binary:
 -ldflags "-X pingpulse/internal/updater.Version=vX.Y.Z"
 ```
 
-Local `wails dev` falls back to `internal/updater/version.go`. Keep that, `wails.json` `productVersion`, and `build/windows/info.json` in sync when you bump.
+Local `wails dev` falls back to `internal/updater/version.go`. Keep that, `wails.json` `productVersion`, and `build/windows/info.json` in sync when you bump — details in [Contributing](CONTRIBUTING.md#releasing-maintainers).
 
-## Building
+## Architecture
 
-Current machine:
+The React UI never talks to SQLite or ICMP. Wails bindings on `App` are the only bridge. The engine, scheduler, notifications, and database are independent Go packages.
 
-```bash
-wails build
+```mermaid
+flowchart LR
+  subgraph UI["Frontend"]
+    React["React + TypeScript<br/>Tailwind · shadcn/ui"]
+  end
+
+  subgraph Shell["Wails v2"]
+    Bind["App bindings"]
+    Events["Events"]
+  end
+
+  subgraph Core["Go backend"]
+    Sched["Scheduler"]
+    Engine["Probe engine"]
+    ICMP["ICMP / HTTP / TCP"]
+    Hub["Notification hub"]
+    Repo["Repositories"]
+    DB[("SQLite WAL")]
+    Tray["System tray"]
+    Upd["Updater"]
+  end
+
+  React --> Bind
+  Bind --> Sched
+  Bind --> Hub
+  Bind --> Repo
+  Bind --> Upd
+  Sched --> Engine
+  Engine --> ICMP
+  Engine --> Repo
+  Engine --> Hub
+  Repo --> DB
+  Engine --> Events
+  Hub --> Events
+  Events --> React
+  Tray --> Bind
 ```
-
-Cross-platform (from a matching or properly tooled host, CGO on):
-
-```bash
-wails build -platform windows/amd64 -webview2 embed
-wails build -platform darwin/universal
-wails build -platform linux/amd64 -tags webkit2_41
-```
-
-Output: `build/bin`.
-
-| OS | Artifact | Desktop bits |
-| --- | --- | --- |
-| Windows | `PingPulse.exe` + WebView2 (embedded in CI) | Tray, WinRT toasts, start-on-boot |
-| macOS | `PingPulse.app` | Tray, LaunchAgent, AppleScript notifications |
-| Linux | `PingPulse` in `/opt/pingpulse` (packages) or a tarball | GTK / WebKitGTK 4.1, `.desktop` launcher + autostart, `notify-send` |
-
-## Releasing
-
-Pushing a tag that matches `v*` runs [`.github/workflows/release.yml`](.github/workflows/release.yml): Windows, Linux, and macOS in parallel, then a GitHub Release with:
-
-- Windows: `windows-amd64-setup.exe` (install) + `windows-amd64.zip` (updater)
-- macOS: `darwin-universal.dmg` (install) + `darwin-universal.tar.gz` (updater)
-- Linux: `linux-amd64.deb`, `linux-amd64.rpm` (install) + `linux-amd64.tar.gz` (updater / portable)
-- `SHA256SUMS.txt`
-
-The tagged commit **must** include the Go module and desktop sources (`go.mod`, `main.go`, `wails.json`, `frontend/`). Setup Go reads the version from `go.mod`; without it the matrix fails immediately.
-
-```bash
-# 1. Bump Version in version.go, wails.json, build/windows/info.json (keep them in sync)
-# 2. Commit and push main
-git push origin main
-git tag v2.0.0
-git push origin v2.0.0
-```
-
-If `v2.0.0` already points at an older commit, either move the tag after the fixed commit is on `main`, or cut `v2.0.1` instead.
-
-Wait for the **Release** workflow. Download from the Releases page, or let an already-updated install pick it up from Settings.
-
-## Testing
-
-```bash
-go test ./internal/...
-```
-
-```bash
-cd frontend
-pnpm test
-pnpm run build
-```
-
-Backend coverage includes status evaluation, failure/recovery thresholds, scheduler start/stop/pause, SMS HTTP delivery, cooldown, repositories, incidents, maintenance windows, import parsing, and updater version/asset selection.
-
-Frontend tests run under Vitest + Testing Library.
-
-## Live events
 
 The UI is event-driven. A 15s dashboard refresh is only a safety net.
 
@@ -480,8 +370,6 @@ The UI is event-driven. A 15s dashboard refresh is only a safety net.
 | `maintenance:changed` | A maintenance window was created, updated, or deleted |
 | `update:progress` | Update download percent |
 
-## Stack
-
 | Layer | Choice |
 | --- | --- |
 | Desktop shell | [Wails v2](https://wails.io) |
@@ -495,6 +383,27 @@ The UI is event-driven. A 15s dashboard refresh is only a safety net.
 | Toasts | Sonner |
 | CI | GitHub Actions → tagged Releases |
 
+Package layout and how to add a notification provider: [Contributing](CONTRIBUTING.md#project-map).
+
+## Develop from source
+
+Requirements and a full workflow live in **[CONTRIBUTING.md](CONTRIBUTING.md)**. Short version:
+
+```bash
+git clone https://github.com/alikmndlu/PingPulse.git
+cd PingPulse
+go install github.com/wailsapp/wails/v2/cmd/wails@v2.15.0
+cd frontend && pnpm install && cd ..
+wails dev
+```
+
+```bash
+go test ./internal/...
+cd frontend && pnpm test
+```
+
+Pushing a tag that matches `v*` publishes Windows setup, macOS DMG, Linux `.deb` / `.rpm`, updater archives, and `SHA256SUMS.txt`.
+
 ## Security posture
 
 - Secrets stay in the local DB; the UI receives `apiKeySet`, not the key
@@ -504,11 +413,20 @@ The UI is event-driven. A 15s dashboard refresh is only a safety net.
 - Data directory and log file are created with restrictive permissions
 - Public Wails errors are sanitized; internal details stay in logs
 
-This is a personal desktop tool. Treat the machine it runs on as the trust boundary.
+How to report a vulnerability: **[SECURITY.md](SECURITY.md)**. Do not open a public issue.
 
-## License
+## Community
 
-PingPulse is released under the [MIT License](LICENSE). Copyright (c) 2026 Ali Kamandlu.
+| | |
+| --- | --- |
+| [Contributing](CONTRIBUTING.md) | Build from source, tests, pull requests, releases |
+| [Code of Conduct](CODE_OF_CONDUCT.md) | Contributor Covenant 2.1 |
+| [Security](SECURITY.md) | Supported versions and private reporting |
+| [Changelog](CHANGELOG.md) | What shipped in each tag |
+| [License](LICENSE) | MIT, Copyright (c) 2026 Ali Kamandlu |
+| [Issues](https://github.com/alikmndlu/PingPulse/issues) | Bugs and feature requests |
+
+By contributing, you agree that your work is licensed under MIT, the same as the rest of PingPulse.
 
 ---
 
@@ -516,6 +434,10 @@ PingPulse is released under the [MIT License](LICENSE). Copyright (c) 2026 Ali K
 
 **PingPulse** — know when your infrastructure goes silent.
 
-[Releases](https://github.com/alikmndlu/PingPulse/releases/latest) · [Issues](https://github.com/alikmndlu/PingPulse/issues)
+[Download v2.1.1](https://github.com/alikmndlu/PingPulse/releases/latest)
+· [Contributing](CONTRIBUTING.md)
+· [Security](SECURITY.md)
+· [Code of Conduct](CODE_OF_CONDUCT.md)
+· [MIT License](LICENSE)
 
 </div>
