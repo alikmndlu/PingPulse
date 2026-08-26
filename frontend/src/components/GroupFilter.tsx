@@ -26,24 +26,26 @@ export function GroupFilter({
   ];
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-1.5">
       {chips
         .filter((chip) => chip.id === GROUP_ALL || chip.count > 0)
         .map((chip) => (
-        <button
-          key={chip.id}
-          type="button"
-          onClick={() => onChange(chip.id)}
-          className={cn(
-            "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs transition-colors",
-            value === chip.id ? "border-cyan-400/50 bg-cyan-400/10 text-foreground" : "border-border bg-card/40 text-muted-foreground hover:text-foreground",
-          )}
-        >
-          {chip.color ? <span className="h-2 w-2 rounded-full" style={{ background: chip.color }} /> : null}
-          {chip.label}
-          <span className="font-mono text-[10px] opacity-70">{chip.count}</span>
-        </button>
-      ))}
+          <button
+            key={chip.id}
+            type="button"
+            onClick={() => onChange(chip.id)}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors",
+              value === chip.id
+                ? "border-primary/30 bg-primary/10 font-medium text-foreground"
+                : "border-transparent bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground",
+            )}
+          >
+            {chip.color ? <span className="h-1.5 w-1.5 rounded-full" style={{ background: chip.color }} /> : null}
+            {chip.label}
+            <span className="font-mono text-[10px] opacity-60">{chip.count}</span>
+          </button>
+        ))}
     </div>
   );
 }
@@ -51,8 +53,8 @@ export function GroupFilter({
 export function GroupBadge({ name, color }: { name?: string; color?: string }) {
   if (!name) return <span className="text-xs text-muted-foreground">—</span>;
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/40 px-2 py-0.5 text-xs">
-      <span className="h-2 w-2 rounded-full" style={{ background: color || "#22d3ee" }} />
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/70 px-2 py-0.5 text-xs">
+      <span className="h-1.5 w-1.5 rounded-full" style={{ background: color || "hsl(var(--primary))" }} />
       {name}
     </span>
   );

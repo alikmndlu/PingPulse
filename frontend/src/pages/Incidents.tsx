@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { EmptyState, Page, PageHeader } from "@/components/app/Page";
 import { MetricCard } from "@/components/MetricCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -80,23 +81,17 @@ export function IncidentsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Incidents</h1>
-          <p className="text-sm text-muted-foreground">Outage lifecycle, downtime, and MTTR across your targets.</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={exportCsv}>
-            <FileSpreadsheet className="h-4 w-4" />
-            Export CSV
-          </Button>
-          <Button variant="outline" size="sm" onClick={printReport}>
-            <Printer className="h-4 w-4" />
-            Print
-          </Button>
-        </div>
-      </div>
+    <Page>
+      <PageHeader title="Incidents" description="Outage lifecycle, downtime, and MTTR across your targets.">
+        <Button variant="outline" size="sm" onClick={exportCsv}>
+          <FileSpreadsheet className="h-4 w-4" />
+          Export CSV
+        </Button>
+        <Button variant="outline" size="sm" onClick={printReport}>
+          <Printer className="h-4 w-4" />
+          Print
+        </Button>
+      </PageHeader>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Incidents" value={report?.totalIncidents ?? 0} icon={Activity} />
         <MetricCard label="Open" value={report?.openIncidents ?? 0} icon={AlertTriangle} tone="danger" />
@@ -158,8 +153,8 @@ export function IncidentsPage() {
               <TableBody>
                 {(report?.byTarget ?? []).length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                      No outages in this range.
+                    <TableCell colSpan={5} className="p-0">
+                      <EmptyState title="No outages in this range" hint="Incidents appear here when a target stays offline past the failure threshold." />
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -196,7 +191,14 @@ export function IncidentsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {page.items.map((inc) => (
+                {page.items.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="p-0">
+                      <EmptyState title="No incidents" hint="Adjust filters or wait for the next outage." />
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  page.items.map((inc) => (
                   <TableRow key={inc.id} className="cursor-pointer" onClick={() => navigate(`/targets/${inc.targetId}`)}>
                     <TableCell>
                       <div className="font-medium">{inc.targetName}</div>
@@ -211,12 +213,13 @@ export function IncidentsPage() {
                     <TableCell>{formatDateTime(inc.startedAt)}</TableCell>
                     <TableCell>{formatDuration(inc.durationSeconds)}</TableCell>
                   </TableRow>
-                ))}
+                ))
+                )}
               </TableBody>
             </Table>
           </CardContent>
         </Card>
       </div>
-    </div>
+    </Page>
   );
 }

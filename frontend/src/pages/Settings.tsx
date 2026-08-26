@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { Download, ExternalLink, RefreshCw } from "lucide-react";
+import { Page, PageHeader, ToggleRow } from "@/components/app/Page";
 import { EventsOn } from "@wailsjs/runtime/runtime";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { api } from "@/services/api";
 import { applyTheme, normalizeTheme, useAppStore } from "@/stores/app";
 import type { Settings, UpdateInfo, UpdateProgress } from "@/types";
@@ -41,23 +41,26 @@ export function SettingsPage() {
     }
   }
 
-  if (!settings) return null;
+  if (!settings) {
+    return (
+      <Page>
+        <p className="text-sm text-muted-foreground">Loading settings…</p>
+      </Page>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Settings</h1>
-        <p className="text-sm text-muted-foreground">Defaults, thresholds, and how PingPulse behaves in the background.</p>
-      </div>
+    <Page>
+      <PageHeader title="Settings" description="Defaults, thresholds, and how PingPulse behaves in the background." />
       <Card>
         <CardHeader>
           <CardTitle>General</CardTitle>
           <CardDescription>Startup and window behavior.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <Toggle label="Start application on boot" checked={settings.startOnBoot} onChange={(startOnBoot) => void save({ ...settings, startOnBoot })} />
-          <Toggle label="Minimize to tray instead of quitting" checked={settings.minimizeToTray} onChange={(minimizeToTray) => void save({ ...settings, minimizeToTray })} />
-          <Toggle label="Start monitoring automatically" checked={settings.startMonitoringAutomatically} onChange={(startMonitoringAutomatically) => void save({ ...settings, startMonitoringAutomatically })} />
+          <ToggleRow label="Start application on boot" checked={settings.startOnBoot} onChange={(startOnBoot) => void save({ ...settings, startOnBoot })} />
+          <ToggleRow label="Minimize to tray instead of quitting" checked={settings.minimizeToTray} onChange={(minimizeToTray) => void save({ ...settings, minimizeToTray })} />
+          <ToggleRow label="Start monitoring automatically" checked={settings.startMonitoringAutomatically} onChange={(startMonitoringAutomatically) => void save({ ...settings, startMonitoringAutomatically })} />
         </CardContent>
       </Card>
       <UpdatesCard />
@@ -118,7 +121,7 @@ export function SettingsPage() {
           Minimize to tray
         </Button>
       </div>
-    </div>
+    </Page>
   );
 }
 
@@ -227,15 +230,6 @@ function UpdatesCard() {
         )}
       </CardContent>
     </Card>
-  );
-}
-
-function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
-      <span className="text-sm">{label}</span>
-      <Switch checked={checked} onCheckedChange={onChange} />
-    </div>
   );
 }
 

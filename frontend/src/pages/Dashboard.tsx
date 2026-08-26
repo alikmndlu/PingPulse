@@ -4,6 +4,7 @@ import { Activity, AlertTriangle, Clock, Server, Signal, Siren, WifiOff, Wrench 
 import { MetricCard } from "@/components/MetricCard";
 import { StatusBadge } from "@/components/StatusBadge";
 import { GroupBadge, GroupFilter } from "@/components/GroupFilter";
+import { EmptyState, Page, PageHeader } from "@/components/app/Page";
 import { StatusDonut } from "@/components/charts/StatusDonut";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,13 +76,10 @@ export function DashboardPage() {
   const groupRows = useMemo(() => countByGroup(targets, groups), [targets, groups]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Live view of every host PingPulse is watching.</p>
-      </div>
+    <Page>
+      <PageHeader title="Dashboard" description="Live view of every host PingPulse is watching." />
       <GroupFilter groups={groups} targets={targets} value={groupFilter} onChange={setGroupFilter} />
-      <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-8">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Targets" value={overview.total} icon={Server} />
         <MetricCard label="Online" value={overview.online} icon={Signal} tone="success" />
         <MetricCard label="Offline" value={overview.offline} icon={WifiOff} tone="danger" />
@@ -101,7 +99,7 @@ export function DashboardPage() {
           hint={`Last ${formatTime(stats?.lastCheck)} · Next ${formatTime(stats?.nextCheck)}`}
         />
       </div>
-      <div className="grid gap-3 lg:grid-cols-5">
+      <div className="grid gap-4 lg:grid-cols-5">
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Status mix</CardTitle>
@@ -166,8 +164,11 @@ export function DashboardPage() {
             <TableBody>
               {visible.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
-                    {targets.length === 0 ? "No targets yet. Add a host to start monitoring." : "No targets in this group."}
+                  <TableCell colSpan={9} className="p-0">
+                    <EmptyState
+                      title={targets.length === 0 ? "No targets yet" : "No targets in this group"}
+                      hint={targets.length === 0 ? "Add a host on the Targets page to start monitoring." : "Pick another group or add hosts to this one."}
+                    />
                   </TableCell>
                 </TableRow>
               ) : (
@@ -175,7 +176,7 @@ export function DashboardPage() {
                   <TableRow key={t.id} className="cursor-pointer" onClick={() => navigate(`/targets/${t.id}`)}>
                     <TableCell className="font-medium">
                       {t.name}
-                      {isMuted(t.mutedUntil) ? <span className="ms-2 text-[10px] uppercase tracking-wide text-amber-400">muted</span> : null}
+                      {isMuted(t.mutedUntil) ? <span className="ms-2 text-[10px] uppercase tracking-wider text-amber-600 dark:text-amber-400">muted</span> : null}
                     </TableCell>
                     <TableCell>
                       <GroupBadge name={t.groupName} color={t.groupColor} />
@@ -198,6 +199,6 @@ export function DashboardPage() {
           </Table>
         </CardContent>
       </Card>
-    </div>
+    </Page>
   );
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Download, FileSpreadsheet, Printer, AlertOctagon, CheckCircle2, Clock, Activity, RefreshCw } from "lucide-react";
+import { EmptyState, Page, PageHeader } from "@/components/app/Page";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -78,13 +79,8 @@ export function SlaReportPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">SLA reports</h1>
-          <p className="text-sm text-muted-foreground">Uptime against a chosen SLA, error budget, MTBF, and MTTR from recorded incidents.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+    <Page>
+      <PageHeader title="SLA reports" description="Uptime against a chosen SLA, error budget, MTBF, and MTTR from recorded incidents.">
           <Button variant="outline" size="sm" onClick={exportCsv} disabled={!report}>
             <FileSpreadsheet className="h-4 w-4" />
             Export CSV
@@ -97,8 +93,7 @@ export function SlaReportPage() {
             <Printer className="h-4 w-4" />
             Print
           </Button>
-        </div>
-      </div>
+      </PageHeader>
       <Card>
         <CardHeader className="pb-3">
           <CardTitle>Parameters</CardTitle>
@@ -160,9 +155,9 @@ export function SlaReportPage() {
             <TableBody>
               {(report?.targets ?? []).length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
-                    No targets yet.
-                  </TableCell>
+                    <TableCell colSpan={9} className="p-0">
+                      <EmptyState title="No targets yet" hint="Add hosts on the Targets page to compute SLA." />
+                    </TableCell>
                 </TableRow>
               ) : (
                 (report?.targets ?? []).map((row) => (
@@ -172,7 +167,7 @@ export function SlaReportPage() {
                       <div className="font-mono text-xs text-muted-foreground">{row.host}</div>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{row.groupName}</TableCell>
-                    <TableCell className={row.uptimePercent >= row.targetSlaPercent ? "font-mono text-emerald-400" : "font-mono text-rose-400"}>{formatPercent(row.uptimePercent)}</TableCell>
+                    <TableCell className={row.uptimePercent >= row.targetSlaPercent ? "font-mono text-emerald-600 dark:text-emerald-400" : "font-mono text-rose-600 dark:text-rose-400"}>{formatPercent(row.uptimePercent)}</TableCell>
                     <TableCell className="font-mono text-muted-foreground">{formatPercent(row.targetSlaPercent)}</TableCell>
                     <TableCell className="font-mono">{formatDuration(row.actualDowntimeSec)}</TableCell>
                     <TableCell>
@@ -188,11 +183,11 @@ export function SlaReportPage() {
                     <TableCell className="font-mono text-xs">{row.mttrMinutes} min</TableCell>
                     <TableCell>
                       {row.status === "compliant" ? (
-                        <Badge className="border-emerald-500/30 bg-emerald-500/20 text-emerald-300">Compliant</Badge>
+                        <Badge variant="success">Compliant</Badge>
                       ) : row.status === "warning" ? (
-                        <Badge className="border-amber-500/30 bg-amber-500/20 text-amber-300">Budget low</Badge>
+                        <Badge variant="warning">Budget low</Badge>
                       ) : (
-                        <Badge className="border-rose-500/30 bg-rose-500/20 text-rose-300">Breached</Badge>
+                        <Badge variant="danger">Breached</Badge>
                       )}
                     </TableCell>
                   </TableRow>
@@ -202,7 +197,7 @@ export function SlaReportPage() {
           </Table>
         </CardContent>
       </Card>
-    </div>
+    </Page>
   );
 }
 

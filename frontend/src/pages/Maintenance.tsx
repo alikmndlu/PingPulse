@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
+import { EmptyState, Page, PageHeader } from "@/components/app/Page";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -80,17 +81,13 @@ export function MaintenancePage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Maintenance</h1>
-          <p className="text-sm text-muted-foreground">Pause checks or silence alerts for planned work.</p>
-        </div>
-        <Button onClick={() => setOpen(true)}>
+    <Page>
+      <PageHeader title="Maintenance" description="Pause checks or silence alerts for planned work.">
+        <Button size="sm" onClick={() => setOpen(true)}>
           <Plus className="h-4 w-4" /> Schedule window
         </Button>
-      </div>
-      <div className="grid gap-3 md:grid-cols-3">
+      </PageHeader>
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle>Windows</CardTitle>
@@ -127,9 +124,9 @@ export function MaintenancePage() {
             <TableBody>
               {items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
-                    No maintenance windows yet.
-                  </TableCell>
+                    <TableCell colSpan={7} className="p-0">
+                      <EmptyState title="No maintenance windows yet" hint="Schedule a window to skip probes or quiet alerts during planned work." />
+                    </TableCell>
                 </TableRow>
               ) : (
                 items.map((w) => (
@@ -220,11 +217,11 @@ export function MaintenancePage() {
               <Label>Reason</Label>
               <Input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="Optional note" />
             </div>
-            <div className="flex items-center justify-between rounded-lg border px-3 py-2">
+            <div className="flex items-center justify-between rounded-xl border border-border/80 px-4 py-3">
               <span className="text-sm">Suppress checks</span>
               <Switch checked={form.suppressChecks} onCheckedChange={(suppressChecks) => setForm({ ...form, suppressChecks })} />
             </div>
-            <div className="flex items-center justify-between rounded-lg border px-3 py-2">
+            <div className="flex items-center justify-between rounded-xl border border-border/80 px-4 py-3">
               <span className="text-sm">Suppress notifications</span>
               <Switch checked={form.suppressNotifications} onCheckedChange={(suppressNotifications) => setForm({ ...form, suppressNotifications })} />
             </div>
@@ -239,6 +236,6 @@ export function MaintenancePage() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </Page>
   );
 }

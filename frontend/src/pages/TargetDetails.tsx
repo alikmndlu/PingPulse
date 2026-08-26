@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Bell, BellOff } from "lucide-react";
+import { Page } from "@/components/app/Page";
 import { StatusBadge } from "@/components/StatusBadge";
 import { GroupBadge } from "@/components/GroupFilter";
 import { AvailabilityStrip } from "@/components/charts/AvailabilityStrip";
@@ -38,7 +39,13 @@ export function TargetDetailsPage() {
     void load();
   }, [id, refreshKey]);
 
-  if (!data) return <p className="text-sm text-muted-foreground">Loading target…</p>;
+  if (!data) {
+    return (
+      <Page>
+        <p className="text-sm text-muted-foreground">Loading target…</p>
+      </Page>
+    );
+  }
   const t = data.target;
   const muted = isMuted(t.mutedUntil);
   const latencyData = (data.latencySeries ?? []).map((p) => ({
@@ -62,23 +69,23 @@ export function TargetDetailsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <button className="text-xs text-muted-foreground hover:text-foreground" onClick={() => navigate("/targets")}>
+    <Page>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-2">
+          <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => navigate("/targets")}>
             ← Targets
           </button>
-          <h1 className="mt-1 text-2xl font-semibold">{t.name}</h1>
+          <h1 className="text-[1.3125rem] font-semibold tracking-tight">{t.name}</h1>
           <p className="font-mono text-sm text-muted-foreground">{endpointLabel(t)}</p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             <GroupBadge name={t.groupName} color={t.groupColor} />
             <Badge variant="outline">{probeLabel(t.probeType)}</Badge>
-            {data.inMaintenance ? <Badge className="bg-amber-500/20 text-amber-300 hover:bg-amber-500/20">Maintenance</Badge> : null}
-            {data.openIncident ? <Badge className="bg-rose-500/20 text-rose-300 hover:bg-rose-500/20">Open incident</Badge> : null}
+            {data.inMaintenance ? <Badge variant="warning">Maintenance</Badge> : null}
+            {data.openIncident ? <Badge variant="danger">Open incident</Badge> : null}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant={muted ? "default" : "outline"} size="sm" onClick={() => void toggleMute()}>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button variant={muted ? "secondary" : "outline"} size="sm" onClick={() => void toggleMute()}>
             {muted ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
             {muted ? `Quiet ${formatMuteRemaining(t.mutedUntil)}` : "Mute 1 hour"}
           </Button>
@@ -88,7 +95,7 @@ export function TargetDetailsPage() {
       {data.openIncident || data.inMaintenance ? (
         <div className="grid gap-3 md:grid-cols-2">
           {data.openIncident ? (
-            <Card className="border-rose-500/30">
+            <Card className="border-rose-500/25">
               <CardHeader>
                 <CardTitle>Open incident</CardTitle>
               </CardHeader>
@@ -104,7 +111,7 @@ export function TargetDetailsPage() {
             </Card>
           ) : null}
           {data.inMaintenance && data.maintenanceWindow ? (
-            <Card className="border-amber-500/30">
+            <Card className="border-amber-500/25">
               <CardHeader>
                 <CardTitle>Active maintenance</CardTitle>
               </CardHeader>
@@ -184,7 +191,7 @@ export function TargetDetailsPage() {
                 <p className="text-sm text-muted-foreground">No events yet.</p>
               ) : (
                 data.recentEvents.map((e) => (
-                  <div key={e.id} className="rounded-md border border-border/70 p-3">
+                  <div key={e.id} className="rounded-xl border border-border/70 p-3">
                     <p className="text-xs uppercase text-muted-foreground">{e.type.replaceAll("_", " ")}</p>
                     <p className="text-sm">{e.message}</p>
                     <p className="text-xs text-muted-foreground">{formatDateTime(e.createdAt)}</p>
@@ -227,7 +234,7 @@ export function TargetDetailsPage() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </Page>
   );
 }
 
@@ -235,7 +242,7 @@ function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="text-muted-foreground">{label}</span>
-      <span className="font-mono">{value}</span>
+      <span className="truncate font-mono text-xs">{value}</span>
     </div>
   );
 }

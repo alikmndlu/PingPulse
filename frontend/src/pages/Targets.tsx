@@ -5,6 +5,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { TargetForm } from "@/components/TargetForm";
 import { GroupBadge, GroupFilter } from "@/components/GroupFilter";
 import { GroupManager } from "@/components/GroupManager";
+import { EmptyState, Page, PageHeader } from "@/components/app/Page";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -119,26 +120,22 @@ export function TargetsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Targets</h1>
-          <p className="text-sm text-muted-foreground">Hosts PingPulse will probe on a schedule.</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setGroupsOpen(true)}>
+    <Page>
+      <PageHeader title="Targets" description="Hosts PingPulse will probe on a schedule.">
+          <Button variant="outline" size="sm" onClick={() => setGroupsOpen(true)}>
             <FolderPlus className="h-4 w-4" /> Groups
           </Button>
-          <Button variant="outline" onClick={() => setImportOpen(true)}>
+          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
             <Upload className="h-4 w-4" /> Import
           </Button>
-          <Button variant="outline" onClick={() => void exportList("json")}>
+          <Button variant="outline" size="sm" onClick={() => void exportList("json")}>
             Export JSON
           </Button>
-          <Button variant="outline" onClick={() => void exportList("csv")}>
+          <Button variant="outline" size="sm" onClick={() => void exportList("csv")}>
             Export CSV
           </Button>
           <Button
+            size="sm"
             onClick={() => {
               setEditing(null);
               setOpen(true);
@@ -146,8 +143,7 @@ export function TargetsPage() {
           >
             <Plus className="h-4 w-4" /> Add target
           </Button>
-        </div>
-      </div>
+      </PageHeader>
       <GroupFilter groups={groups} targets={targets} value={groupFilter} onChange={setGroupFilter} />
       <Card>
         <CardHeader>
@@ -172,11 +168,21 @@ export function TargetsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {visible.map((t) => (
+              {visible.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="p-0">
+                    <EmptyState
+                      title={targets.length === 0 ? "No targets yet" : "No targets in this group"}
+                      hint={targets.length === 0 ? "Add a host to start probing on a schedule." : "Pick another group or add hosts to this one."}
+                    />
+                  </TableCell>
+                </TableRow>
+              ) : (
+                visible.map((t) => (
                 <TableRow key={t.id}>
                   <TableCell className="cursor-pointer font-medium" onClick={() => navigate(`/targets/${t.id}`)}>
                     {t.name}
-                    {isMuted(t.mutedUntil) ? <span className="ms-2 text-[10px] uppercase tracking-wide text-amber-400">muted</span> : null}
+                    {isMuted(t.mutedUntil) ? <span className="ms-2 text-[10px] uppercase tracking-wider text-amber-600 dark:text-amber-400">muted</span> : null}
                   </TableCell>
                   <TableCell>
                     <GroupBadge name={t.groupName} color={t.groupColor} />
@@ -216,7 +222,7 @@ export function TargetsPage() {
                           {t.enabled ? "Disable" : "Enable"}
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          className="text-rose-400"
+                          className="text-rose-600 dark:text-rose-400"
                           onClick={() =>
                             void api
                               .deleteTarget(t.id)
@@ -233,7 +239,8 @@ export function TargetsPage() {
                     </DropdownMenu>
                   </TableCell>
                 </TableRow>
-              ))}
+              ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -259,6 +266,6 @@ export function TargetsPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </Page>
   );
 }

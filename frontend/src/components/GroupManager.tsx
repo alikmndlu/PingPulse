@@ -64,7 +64,7 @@ export function GroupManager({
             <p className="text-sm text-muted-foreground">Create Home, VPS, cameras, work — whatever matches how you think about the list.</p>
           ) : (
             groups.map((g) => (
-              <div key={g.id} className="flex items-center gap-3 rounded-lg border border-border px-3 py-2">
+              <div key={g.id} className="flex items-center gap-3 rounded-xl border border-border/80 px-3 py-2">
                 <span className="h-3 w-3 rounded-full" style={{ background: g.color }} />
                 <span className="flex-1 text-sm">{g.name}</span>
                 <Button

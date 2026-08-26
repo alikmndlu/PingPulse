@@ -179,7 +179,7 @@ export function TargetForm({
               <Input id="delay" type="number" min={0} max={60} value={form.retryDelay} onChange={(e) => setForm({ ...form, retryDelay: Number(e.target.value) })} />
             </div>
           </div>
-          <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+          <div className="flex items-center justify-between rounded-xl border border-border/80 px-4 py-3">
             <div>
               <p className="text-sm font-medium">Enabled</p>
               <p className="text-xs text-muted-foreground">Include this target in the scheduler</p>

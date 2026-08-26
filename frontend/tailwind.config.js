@@ -38,6 +38,7 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        sidebar: "hsl(var(--sidebar))",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -45,7 +46,7 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        sans: ["IBM Plex Sans", "Segoe UI", "system-ui", "sans-serif"],
+        sans: ["Inter", "Segoe UI", "system-ui", "sans-serif"],
         mono: ["IBM Plex Mono", "ui-monospace", "SFMono-Regular", "monospace"],
       },
       keyframes: {

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { EmptyState, Page, PageHeader } from "@/components/app/Page";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,11 +53,8 @@ export function HistoryPage() {
   }, [refreshKey, filter.targetId, filter.status, filter.from, filter.to]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">History</h1>
-        <p className="text-sm text-muted-foreground">Every stored ping result, filterable by host and outcome.</p>
-      </div>
+    <Page>
+      <PageHeader title="History" description="Every stored ping result, filterable by host and outcome." />
       <Card>
         <CardHeader>
           <CardTitle>Filters</CardTitle>
@@ -107,7 +105,14 @@ export function HistoryPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(page?.items ?? []).map((item) => {
+              {(page?.items ?? []).length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="p-0">
+                    <EmptyState title="No results" hint="Adjust filters or wait for the next probe cycle." />
+                  </TableCell>
+                </TableRow>
+              ) : (
+                (page?.items ?? []).map((item) => {
                 const target = targets.find((t) => t.id === item.targetId);
                 return (
                   <TableRow key={item.id}>
@@ -121,12 +126,13 @@ export function HistoryPage() {
                     <TableCell className="max-w-md truncate text-xs text-muted-foreground">{item.error ?? "—"}</TableCell>
                   </TableRow>
                 );
-              })}
+              })
+              )}
             </TableBody>
           </Table>
           <p className="mt-4 text-xs text-muted-foreground">{page?.total ?? 0} results</p>
         </CardContent>
       </Card>
-    </div>
+    </Page>
   );
 }

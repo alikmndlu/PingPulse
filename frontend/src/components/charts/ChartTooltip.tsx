@@ -9,7 +9,7 @@ export function ChartTooltip({
 }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border border-border/70 bg-card/95 px-3 py-2 shadow-xl backdrop-blur">
+    <div className="rounded-xl border border-border bg-card px-3 py-2 shadow-lg">
       {label ? <p className="mb-1 font-mono text-[11px] text-muted-foreground">{label}</p> : null}
       <div className="space-y-1">
         {payload.map((item) => (

@@ -1,6 +1,6 @@
 export const copy = {
   appName: "PingPulse",
-  tagline: "Know when your infrastructure goes silent.",
+  tagline: "Know when a host goes silent.",
   nav: {
     dashboard: "Dashboard",
     targets: "Targets",
