@@ -35,7 +35,7 @@ Built for people who run their own boxes and want to know the moment one of them
 - **Incidents** — open on offline, close on recovery; downtime, MTTR, and per-target uptime on the Incidents page
 - **Quiet hours** — global mute (Quiet 1 hour) and per-target mute without stopping probes
 - **In-app updates** — check and install from GitHub Releases
-- **Release CI** — tagged `v*` pushes build Windows, macOS, and Linux assets automatically
+- **Release CI** — tagged `v*` pushes Windows setup, macOS DMG, Linux `.deb`/`.rpm`, and updater archives
 
 Product version is stamped in `internal/updater/version.go`, `wails.json`, and `build/windows/info.json` (**2.0.0**).
 
@@ -170,11 +170,18 @@ Grab the latest asset for your OS from **[Releases](https://github.com/alikmndlu
 
 | OS | Asset | Run |
 | --- | --- | --- |
-| Windows x64 | `PingPulse-<tag>-windows-amd64.zip` | Extract and run `PingPulse.exe` |
-| macOS universal | `PingPulse-<tag>-darwin-universal.tar.gz` | Extract and open `PingPulse.app` |
-| Linux x64 | `PingPulse-<tag>-linux-amd64.tar.gz` | Extract, `chmod +x PingPulse`, run it |
+| Windows x64 | `PingPulse-<tag>-windows-amd64-setup.exe` | Run the installer (Start Menu + Uninstall). In-app updates replace that install. |
+| macOS universal | `PingPulse-<tag>-darwin-universal.dmg` | Open the disk image and drag `PingPulse.app` to Applications |
+| Linux (Debian / Ubuntu) | `PingPulse-<tag>-linux-amd64.deb` | `sudo apt install ./PingPulse-<tag>-linux-amd64.deb` |
+| Linux (Fedora) | `PingPulse-<tag>-linux-amd64.rpm` | `sudo dnf install ./PingPulse-<tag>-linux-amd64.rpm` |
 
-Linux builds are linked against **WebKitGTK 4.1** (Ubuntu 24.04+, Fedora 40+, Debian 12+):
+Windows first install is **not** portable. Use the setup.exe. The `.zip` is only what Settings → Install update downloads later.
+
+macOS first install is the **`.dmg`**. Drag the app to Applications so later in-app updates can replace it. The `.tar.gz` is only the updater payload.
+
+Linux packages install to `/opt/pingpulse`, add a desktop entry, and a `pingpulse` command. Later in-app updates open the new `.deb` or `.rpm`. The `.tar.gz` is a portable copy for a writable folder such as `~/.local/bin`; in-app update can replace that copy directly.
+
+Linux builds are linked against **WebKitGTK 4.1** (Ubuntu 24.04+, Fedora 40+, Debian 12+). The packages pull those libraries in. For a tarball:
 
 ```bash
 # Debian / Ubuntu 24.04+
@@ -194,15 +201,15 @@ macOS builds are unsigned (no Apple Developer ID / notarization yet), so Gatekee
 Or strip the download quarantine and launch from Terminal:
 
 ```bash
-xattr -cr ~/Downloads/PingPulse.app
-open ~/Downloads/PingPulse.app
+xattr -cr /Applications/PingPulse.app
+open /Applications/PingPulse.app
 ```
 
 ### Verify a packaged build
 
 Do this once with a GitHub Release asset, not `wails dev`. That is where long-lived bugs show up.
 
-1. Extract and launch the app
+1. Run the Windows setup, open the macOS disk image and drag the app to Applications, or install the Linux `.deb` / `.rpm`
 2. Enable **Start application on boot**
 3. Confirm the tray icon, then hide the window
 4. Keep or add an ICMP target
@@ -370,8 +377,15 @@ Settings → **Check for updates** calls the public GitHub Releases API for [`al
 
 - Compares the running semver with `tag_name`
 - Downloads only assets from `github.com/alikmndlu/PingPulse/releases/download/`
-- Picks `windows-amd64.zip`, `linux-amd64.tar.gz`, or `darwin-universal.tar.gz`
-- Replaces the running binary (or `.app` on macOS) and restarts
+- Picks `windows-amd64.zip`, `linux-amd64.tar.gz`, or `darwin-universal.tar.gz` for in-place replace (never the Windows setup.exe, macOS `.dmg`, or Linux `.deb`/`.rpm`)
+- If the install folder is writable, replaces the running binary (or the `.app` on macOS) and restarts
+- If Linux was installed as a system package (`/opt/pingpulse`), downloads the matching `.deb` or `.rpm` and opens it with the desktop installer
+
+On Windows, first install with **`windows-amd64-setup.exe`**. That puts PingPulse in `%LOCALAPPDATA%\Programs\PingPulse`, adds Start Menu / desktop shortcuts, and an Uninstall entry. Later in-app updates overwrite that same `PingPulse.exe`. A zip extracted to Downloads will also self-replace, but shortcuts and Uninstall will not exist.
+
+On macOS, first install from the **`.dmg`** into `/Applications`. In-app update cannot replace a copy still sitting on a read-only disk image.
+
+On Linux, first install the **`.deb`** or **`.rpm`**. In-app update then opens the next package. A tarball in a home folder updates in place.
 
 `wails dev` can *check*, but will not *install* — the process is a throwaway build. **If you are on v1.x (or any build without the updater), install the newest GitHub Release by hand once.** After that, later versions can update themselves.
 
@@ -407,11 +421,16 @@ Output: `build/bin`.
 | --- | --- | --- |
 | Windows | `PingPulse.exe` + WebView2 (embedded in CI) | Tray, WinRT toasts, start-on-boot |
 | macOS | `PingPulse.app` | Tray, LaunchAgent, AppleScript notifications |
-| Linux | `PingPulse` | GTK / WebKitGTK 4.1, `.desktop` autostart, `notify-send` |
+| Linux | `PingPulse` in `/opt/pingpulse` (packages) or a tarball | GTK / WebKitGTK 4.1, `.desktop` launcher + autostart, `notify-send` |
 
 ## Releasing
 
-Pushing a tag that matches `v*` runs [`.github/workflows/release.yml`](.github/workflows/release.yml): Windows, Linux, and macOS in parallel, then a GitHub Release with the three archives.
+Pushing a tag that matches `v*` runs [`.github/workflows/release.yml`](.github/workflows/release.yml): Windows, Linux, and macOS in parallel, then a GitHub Release with:
+
+- Windows: `windows-amd64-setup.exe` (install) + `windows-amd64.zip` (updater)
+- macOS: `darwin-universal.dmg` (install) + `darwin-universal.tar.gz` (updater)
+- Linux: `linux-amd64.deb`, `linux-amd64.rpm` (install) + `linux-amd64.tar.gz` (updater / portable)
+- `SHA256SUMS.txt`
 
 The tagged commit **must** include the Go module and desktop sources (`go.mod`, `main.go`, `wails.json`, `frontend/`). Setup Go reads the version from `go.mod`; without it the matrix fails immediately.
 

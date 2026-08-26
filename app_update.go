@@ -21,23 +21,26 @@ func (a *App) CheckForUpdate() (updater.Info, error) {
 	return info, publicErr(err)
 }
 
-func (a *App) InstallUpdate() error {
+func (a *App) InstallUpdate() (updater.Result, error) {
 	ctx, cancel := context.WithTimeout(a.requestContext(), 10*time.Minute)
 	defer cancel()
 	info, err := updater.Check(ctx)
 	if err != nil {
-		return publicErr(err)
+		return updater.Result{}, publicErr(err)
 	}
-	if err := updater.Install(ctx, info, func(p updater.Progress) {
+	res, err := updater.Install(ctx, info, func(p updater.Progress) {
 		a.emit(domain.WailsUpdateProgress, p)
-	}); err != nil {
-		return publicErr(err)
+	})
+	if err != nil {
+		return res, publicErr(err)
 	}
-	go func() {
-		time.Sleep(400 * time.Millisecond)
-		a.QuitApp()
-	}()
-	return nil
+	if res.RestartRequired {
+		go func() {
+			time.Sleep(400 * time.Millisecond)
+			a.QuitApp()
+		}()
+	}
+	return res, nil
 }
 
 func (a *App) OpenReleasePage() {

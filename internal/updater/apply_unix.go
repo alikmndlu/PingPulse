@@ -11,7 +11,8 @@ import (
 	"strings"
 )
 
-func replaceRunning(newPath string) error {
+func replaceRunning(newPath, version string) error {
+	_ = version
 	current, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("unable to locate the running app")
@@ -20,10 +21,15 @@ func replaceRunning(newPath string) error {
 		current = resolved
 	}
 	target := current
+	destDir := filepath.Dir(current)
 	if runtime.GOOS == "darwin" {
 		if app := appBundleRoot(current); app != "" {
 			target = app
+			destDir = filepath.Dir(app)
 		}
+	}
+	if !dirWritable(destDir) {
+		return notWritableError()
 	}
 	script := filepath.Join(filepath.Dir(newPath), "apply-update.sh")
 	body := "#!/bin/sh\nset -e\n" +
@@ -56,18 +62,6 @@ func replaceRunning(newPath string) error {
 	}
 	_ = cmd.Process.Release()
 	return nil
-}
-
-func appBundleRoot(exe string) string {
-	dir := filepath.Dir(exe) // MacOS
-	if !strings.EqualFold(filepath.Base(dir), "MacOS") {
-		return ""
-	}
-	contents := filepath.Dir(dir)
-	if !strings.EqualFold(filepath.Base(contents), "Contents") {
-		return ""
-	}
-	return filepath.Dir(contents)
 }
 
 func shellEscape(v string) string {

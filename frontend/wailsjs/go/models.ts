@@ -1196,6 +1196,9 @@ export namespace updater {
 	    notes: string;
 	    assetName: string;
 	    assetUrl: string;
+	    packageName: string;
+	    packageUrl: string;
+	    installHint: string;
 	    available: boolean;
 	    canInstall: boolean;
 	
@@ -1211,8 +1214,25 @@ export namespace updater {
 	        this.notes = source["notes"];
 	        this.assetName = source["assetName"];
 	        this.assetUrl = source["assetUrl"];
+	        this.packageName = source["packageName"];
+	        this.packageUrl = source["packageUrl"];
+	        this.installHint = source["installHint"];
 	        this.available = source["available"];
 	        this.canInstall = source["canInstall"];
+	    }
+	}
+	export class Result {
+	    restartRequired: boolean;
+	    openedInstaller: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new Result(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.restartRequired = source["restartRequired"];
+	        this.openedInstaller = source["openedInstaller"];
 	    }
 	}
 

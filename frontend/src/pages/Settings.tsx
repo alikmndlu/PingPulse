@@ -266,7 +266,13 @@ function UpdatesCard() {
     setInstalling(true);
     setProgress({ percent: 0, bytes: 0, total: 0 });
     try {
-      await api.installUpdate();
+      const result = await api.installUpdate();
+      if (result.openedInstaller) {
+        toast.success("The new package is open. Finish installing it, then reopen PingPulse.");
+        setInstalling(false);
+        setProgress(null);
+        return;
+      }
       toast.success("Update downloaded. PingPulse will restart.");
     } catch (err) {
       setInstalling(false);
@@ -280,7 +286,7 @@ function UpdatesCard() {
       <CardHeader>
         <CardTitle>Updates</CardTitle>
         <CardDescription>
-          Check GitHub Releases for a newer PingPulse build. Installing replaces this app and restarts it.
+          Check GitHub Releases for a newer PingPulse. Installing replaces the copy you already installed. A Linux package from apt or dnf opens the new installer instead of writing under /opt.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -301,7 +307,7 @@ function UpdatesCard() {
           <div className="space-y-3 rounded-lg border border-border p-3">
             <p className="text-sm font-medium">
               {info.latestVersion} is available
-              {info.assetName ? ` (${info.assetName})` : ""}
+              {info.assetName ? ` (${info.assetName})` : info.packageName ? ` (${info.packageName})` : ""}
             </p>
             {info.notes && (
               <pre className="max-h-40 overflow-auto whitespace-pre-wrap text-xs text-muted-foreground">{info.notes}</pre>
@@ -313,7 +319,7 @@ function UpdatesCard() {
               </Button>
             ) : (
               <p className="text-sm text-muted-foreground">
-                In-app install is not available for this build. Download the release from GitHub instead.
+                {info.installHint || "In-app install is not available for this build. Download the release from GitHub instead."}
               </p>
             )}
             {installing && progress && (

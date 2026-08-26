@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"runtime"
 	"strings"
 	"time"
@@ -60,8 +61,25 @@ func Check(ctx context.Context) (Info, error) {
 		info.AssetName = name
 		info.AssetURL = assetURL
 	}
+	if runtime.GOOS == "linux" {
+		if pn, pu, ok := pickLinuxPackage(rel); ok {
+			info.PackageName = pn
+			info.PackageURL = pu
+		}
+	}
 	info.Available = Compare(info.CurrentVersion, info.LatestVersion) < 0
-	info.CanInstall = info.Available && info.AssetURL != "" && !runningFromDevBuild()
+	dev := runningFromDevBuild()
+	writable := currentInstallWritable()
+	inPlace := info.AssetURL != "" && writable
+	pkg := info.PackageURL != ""
+	info.CanInstall = info.Available && !dev && (inPlace || pkg)
+	switch {
+	case !info.Available:
+	case dev:
+		info.InstallHint = "Updates cannot be installed from a development build."
+	case !info.CanInstall:
+		info.InstallHint = notWritableHint()
+	}
 	return info, nil
 }
 
@@ -92,6 +110,9 @@ func pickAsset(rel githubRelease, goos string) (string, string, bool) {
 		if name == "" || url == "" {
 			continue
 		}
+		if skipHumanInstaller(name) {
+			continue
+		}
 		if strings.Contains(name, needles[0]) || (strings.Contains(name, needles[1]) && strings.Contains(name, ".zip") && goos == "windows") || (strings.Contains(name, needles[1]) && strings.Contains(name, ".tar.gz") && goos != "windows") {
 			if allowedDownloadURL(url) {
 				return asset.Name, url, true
@@ -101,8 +122,51 @@ func pickAsset(rel githubRelease, goos string) (string, string, bool) {
 	return "", "", false
 }
 
+func pickLinuxPackage(rel githubRelease) (string, string, bool) {
+	return pickLinuxPackagePref(rel, fileExists("/etc/debian_version"))
+}
+
+func pickLinuxPackagePref(rel githubRelease, preferDeb bool) (string, string, bool) {
+	first, second := ".deb", ".rpm"
+	if !preferDeb {
+		first, second = ".rpm", ".deb"
+	}
+	if name, url, ok := pickBySuffix(rel, first); ok {
+		return name, url, true
+	}
+	return pickBySuffix(rel, second)
+}
+
+func pickBySuffix(rel githubRelease, suffix string) (string, string, bool) {
+	suffix = strings.ToLower(suffix)
+	for _, asset := range rel.Assets {
+		name := strings.ToLower(strings.TrimSpace(asset.Name))
+		url := strings.TrimSpace(asset.BrowserDownloadURL)
+		if name == "" || url == "" || !strings.HasSuffix(name, suffix) {
+			continue
+		}
+		if allowedDownloadURL(url) {
+			return asset.Name, url, true
+		}
+	}
+	return "", "", false
+}
+
+func skipHumanInstaller(name string) bool {
+	return strings.Contains(name, "setup") ||
+		strings.Contains(name, "installer") ||
+		strings.HasSuffix(name, ".deb") ||
+		strings.HasSuffix(name, ".rpm") ||
+		strings.HasSuffix(name, ".dmg")
+}
+
 func allowedDownloadURL(raw string) bool {
 	raw = strings.ToLower(strings.TrimSpace(raw))
 	prefix := fmt.Sprintf("https://github.com/%s/%s/releases/download/", strings.ToLower(GitHubOwner), strings.ToLower(GitHubRepo))
 	return strings.HasPrefix(raw, prefix)
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }

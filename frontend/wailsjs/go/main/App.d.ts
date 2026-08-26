@@ -53,7 +53,7 @@ export function GetTargets():Promise<Array<domain.Target>>;
 
 export function ImportTargets(arg1:string,arg2:string):Promise<domain.ImportResult>;
 
-export function InstallUpdate():Promise<void>;
+export function InstallUpdate():Promise<updater.Result>;
 
 export function ListGroups():Promise<Array<domain.TargetGroup>>;
 

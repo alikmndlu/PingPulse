@@ -7,12 +7,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
+
+	"golang.org/x/sys/windows/registry"
 )
 
 const createNoWindow = 0x08000000
 
-func replaceRunning(newBinary string) error {
+func replaceRunning(newBinary, version string) error {
 	current, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("unable to locate the running app")
@@ -20,6 +23,10 @@ func replaceRunning(newBinary string) error {
 	if resolved, err := filepath.EvalSymlinks(current); err == nil {
 		current = resolved
 	}
+	if !dirWritable(filepath.Dir(current)) {
+		return notWritableError()
+	}
+	syncUninstallDisplayVersion(version)
 	script := filepath.Join(filepath.Dir(newBinary), "apply-update.bat")
 	body := "@echo off\r\n" +
 		"setlocal\r\n" +
@@ -47,4 +54,17 @@ func replaceRunning(newBinary string) error {
 	}
 	_ = cmd.Process.Release()
 	return nil
+}
+
+func syncUninstallDisplayVersion(version string) {
+	v := strings.TrimPrefix(DisplayVersionFrom(version), "v")
+	if v == "" {
+		return
+	}
+	k, err := registry.OpenKey(registry.CURRENT_USER, `Software\Microsoft\Windows\CurrentVersion\Uninstall\PingPulse`, registry.SET_VALUE)
+	if err != nil {
+		return
+	}
+	defer k.Close()
+	_ = k.SetStringValue("DisplayVersion", v)
 }

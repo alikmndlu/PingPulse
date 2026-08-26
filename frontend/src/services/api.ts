@@ -22,6 +22,7 @@ import type {
   TargetDetails,
   TargetGroup,
   UpdateInfo,
+  UpdateResult,
   UpdateMaintenanceInput,
   UpdateTargetInput,
 } from "@/types";
@@ -118,7 +119,7 @@ export const api = {
   quitApp: () => QuitApp() as Promise<void>,
   getAppVersion: () => GetAppVersion() as Promise<string>,
   checkForUpdate: () => CheckForUpdate() as Promise<UpdateInfo>,
-  installUpdate: () => InstallUpdate() as Promise<void>,
+  installUpdate: () => InstallUpdate() as Promise<UpdateResult>,
   openReleasePage: () => OpenReleasePage() as Promise<void>,
   getDataPaths: () => GetDataPaths() as Promise<DataPaths>,
   openDataDir: () => OpenDataDir() as Promise<void>,

@@ -7,6 +7,9 @@ type Info struct {
 	Notes          string `json:"notes"`
 	AssetName      string `json:"assetName"`
 	AssetURL       string `json:"assetUrl"`
+	PackageName    string `json:"packageName"`
+	PackageURL     string `json:"packageUrl"`
+	InstallHint    string `json:"installHint"`
 	Available      bool   `json:"available"`
 	CanInstall     bool   `json:"canInstall"`
 }
@@ -15,6 +18,11 @@ type Progress struct {
 	Percent int   `json:"percent"`
 	Bytes   int64 `json:"bytes"`
 	Total   int64 `json:"total"`
+}
+
+type Result struct {
+	RestartRequired bool `json:"restartRequired"`
+	OpenedInstaller bool `json:"openedInstaller"`
 }
 
 type githubRelease struct {

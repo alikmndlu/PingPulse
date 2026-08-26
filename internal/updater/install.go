@@ -37,26 +37,69 @@ func runningFromDevBuild() bool {
 	return strings.Contains(lower, sep+"go-build")
 }
 
-func Install(ctx context.Context, info Info, progress ProgressFunc) error {
+func Install(ctx context.Context, info Info, progress ProgressFunc) (Result, error) {
+	var result Result
 	if runningFromDevBuild() {
-		return fmt.Errorf("updates cannot be installed from a development build")
+		return result, fmt.Errorf("updates cannot be installed from a development build")
 	}
-	if !info.CanInstall || !allowedDownloadURL(info.AssetURL) {
-		return fmt.Errorf("no installable update was found for this system")
+	if !info.CanInstall {
+		return result, fmt.Errorf("no installable update was found for this system")
+	}
+	writable := currentInstallWritable()
+	usePackage := runtime.GOOS == "linux" && info.PackageURL != "" && allowedDownloadURL(info.PackageURL) && (!writable || info.AssetURL == "")
+	if usePackage {
+		return openLinuxPackage(ctx, info, progress)
+	}
+	if !writable {
+		return result, notWritableError()
+	}
+	if !info.CanInstall || info.AssetURL == "" || !allowedDownloadURL(info.AssetURL) {
+		return result, fmt.Errorf("no installable update was found for this system")
 	}
 	dir, err := os.MkdirTemp("", "pingpulse-update-*")
 	if err != nil {
-		return fmt.Errorf("unable to prepare the update")
+		return result, fmt.Errorf("unable to prepare the update")
 	}
 	archivePath := filepath.Join(dir, safeName(info.AssetName))
 	if err := download(ctx, info.AssetURL, archivePath, progress); err != nil {
-		return err
+		return result, err
 	}
 	extracted, err := extract(archivePath, dir)
 	if err != nil {
-		return err
+		return result, err
 	}
-	return replaceRunning(extracted)
+	if err := replaceRunning(extracted, info.LatestVersion); err != nil {
+		return result, err
+	}
+	result.RestartRequired = true
+	return result, nil
+}
+
+func openLinuxPackage(ctx context.Context, info Info, progress ProgressFunc) (Result, error) {
+	dir, err := packageDownloadDir()
+	if err != nil {
+		return Result{}, fmt.Errorf("unable to prepare the update")
+	}
+	dest := filepath.Join(dir, safeName(info.PackageName))
+	if err := download(ctx, info.PackageURL, dest, progress); err != nil {
+		return Result{}, err
+	}
+	if err := openPackageInstaller(dest); err != nil {
+		return Result{}, fmt.Errorf("unable to open the package installer")
+	}
+	return Result{OpenedInstaller: true}, nil
+}
+
+func packageDownloadDir() (string, error) {
+	base, err := os.UserCacheDir()
+	if err != nil || strings.TrimSpace(base) == "" {
+		return os.MkdirTemp("", "pingpulse-pkg-*")
+	}
+	dir := filepath.Join(base, "PingPulse", "updates")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", err
+	}
+	return dir, nil
 }
 
 func download(ctx context.Context, url, dest string, progress ProgressFunc) error {

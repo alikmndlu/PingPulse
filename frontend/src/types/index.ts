@@ -381,8 +381,16 @@ export interface UpdateInfo {
   notes: string;
   assetName: string;
   assetUrl: string;
+  packageName?: string;
+  packageUrl?: string;
+  installHint?: string;
   available: boolean;
   canInstall: boolean;
+}
+
+export interface UpdateResult {
+  restartRequired: boolean;
+  openedInstaller: boolean;
 }
 
 export interface UpdateProgress {
