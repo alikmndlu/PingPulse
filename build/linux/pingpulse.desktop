@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=PingPulse
+Comment=Know when your infrastructure goes silent.
+Exec=/opt/pingpulse/PingPulse
+TryExec=/opt/pingpulse/PingPulse
+Icon=pingpulse
+Terminal=false
+Categories=Network;Monitor;System;
+StartupNotify=true
+StartupWMClass=PingPulse
+Keywords=ping;monitor;uptime;icmp;http;

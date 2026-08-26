@@ -1,5 +1,7 @@
 build/bin
 build/windows/*.syso
+build/windows/installer/wails_tools.nsh
+build/windows/installer/tmp/
 frontend/dist
 frontend/node_modules
 frontend/wailsjs/runtime

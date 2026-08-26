@@ -1,0 +1,42 @@
+name: pingpulse
+arch: amd64
+platform: linux
+version: ${VERSION}
+release: "1"
+section: net
+priority: optional
+maintainer: Ali Kamandlu <alikmndlu1@gmail.com>
+description: Know when your infrastructure goes silent.
+homepage: https://github.com/alikmndlu/PingPulse
+license: MIT
+contents:
+  - src: ../bin/PingPulse
+    dst: /opt/pingpulse/PingPulse
+    file_info:
+      mode: 0755
+  - src: pingpulse.desktop
+    dst: /usr/share/applications/pingpulse.desktop
+  - src: ../appicon.png
+    dst: /usr/share/icons/hicolor/256x256/apps/pingpulse.png
+  - src: ../appicon.png
+    dst: /usr/share/pixmaps/pingpulse.png
+  - src: ../../LICENSE
+    dst: /usr/share/doc/pingpulse/copyright
+  - src: /opt/pingpulse/PingPulse
+    dst: /usr/bin/pingpulse
+    type: symlink
+overrides:
+  deb:
+    depends:
+      - libgtk-3-0
+      - libwebkit2gtk-4.1-0
+    recommends:
+      - libayatana-appindicator3-1
+      - xdg-utils
+  rpm:
+    depends:
+      - gtk3
+      - webkit2gtk4.1
+    recommends:
+      - libayatana-appindicator-gtk3
+      - xdg-utils
