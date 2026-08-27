@@ -9,18 +9,20 @@ maintainer: Ali Kamandlu <alikmndlu1@gmail.com>
 description: Know when your infrastructure goes silent.
 homepage: https://github.com/alikmndlu/PingPulse
 license: MIT
+# nfpm resolves every `src` against its own working directory, not this file's
+# directory, so these are repo-root relative and nfpm must run from the repo root.
 contents:
-  - src: ../bin/PingPulse
+  - src: build/bin/PingPulse
     dst: /opt/pingpulse/PingPulse
     file_info:
       mode: 0755
-  - src: pingpulse.desktop
+  - src: build/linux/pingpulse.desktop
     dst: /usr/share/applications/pingpulse.desktop
-  - src: ../appicon.png
+  - src: build/appicon.png
     dst: /usr/share/icons/hicolor/256x256/apps/pingpulse.png
-  - src: ../appicon.png
+  - src: build/appicon.png
     dst: /usr/share/pixmaps/pingpulse.png
-  - src: ../../LICENSE
+  - src: LICENSE
     dst: /usr/share/doc/pingpulse/copyright
   - src: /opt/pingpulse/PingPulse
     dst: /usr/bin/pingpulse

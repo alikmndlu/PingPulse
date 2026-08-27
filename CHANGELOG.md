@@ -4,6 +4,12 @@ All notable changes to PingPulse are documented here.
 
 ## Unreleased
 
+## 2.1.3 — 2026-08-27
+
+### Packaging
+
+- Linux `.deb` and `.rpm` packages build again. nfpm resolves every `contents[].src` against its own working directory, not the config file's directory, so the paths in `build/linux/nfpm.yaml` are now repo-root relative. Packaging failed on the 2.1.2 tag, which stopped that release from publishing.
+
 ## 2.1.2 — 2026-08-26
 
 ### App

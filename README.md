@@ -29,7 +29,7 @@ PingPulse is a **native desktop app** — not a SaaS, not a cloud agent, not a b
 
 Built for people who run their own boxes and want to know the moment one of them goes quiet.
 
-**Current release: [v2.1.2](https://github.com/alikmndlu/PingPulse/releases/latest)** — installers for Windows, macOS, and Linux, plus in-app updates that follow those installs.
+**Current release: [v2.1.3](https://github.com/alikmndlu/PingPulse/releases/latest)** — installers for Windows, macOS, and Linux, plus in-app updates that follow those installs.
 
 ## Contents
 
@@ -57,7 +57,7 @@ Grab the latest asset for your OS from **[Releases](https://github.com/alikmndlu
 | Linux (Debian / Ubuntu) | `PingPulse-<tag>-linux-amd64.deb` | `sudo apt install ./PingPulse-<tag>-linux-amd64.deb` |
 | Linux (Fedora) | `PingPulse-<tag>-linux-amd64.rpm` | `sudo dnf install ./PingPulse-<tag>-linux-amd64.rpm` |
 
-Coming from **v1.x**: install 2.1.2 by hand once. After that, later versions can update themselves.
+Coming from **v1.x**: install 2.1.3 by hand once. After that, later versions can update themselves.
 
 ### Windows
 
@@ -123,7 +123,7 @@ Most “uptime” tools assume a server, an account, and a monthly invoice. Ping
 
 ## What's new in 2.1
 
-**v2.1.2** is the release you should install. Full notes: [CHANGELOG](CHANGELOG.md).
+**v2.1.3** is the release you should install. Full notes: [CHANGELOG](CHANGELOG.md).
 
 - **In-app Help** — an animated tour of every screen, from probes to backup
 - Faster page changes with skeleton loaders; revisits keep data on screen
@@ -136,7 +136,7 @@ Most “uptime” tools assume a server, an account, and a monthly invoice. Ping
 
 **v2.0.0** brought the cross-platform Wails app: ICMP / HTTP / TCP, groups, maintenance, incidents, SLA, and in-app updates.
 
-Product version is stamped in `internal/updater/version.go`, `wails.json`, and `build/windows/info.json` (**2.1.2**).
+Product version is stamped in `internal/updater/version.go`, `wails.json`, and `build/windows/info.json` (**2.1.3**).
 
 ## Features
 
@@ -305,7 +305,7 @@ On macOS, first install from the **`.dmg`** into `/Applications`. In-app update 
 
 On Linux, first install the **`.deb`** or **`.rpm`**. In-app update then opens the next package. A tarball in a home folder updates in place.
 
-`wails dev` can *check*, but will not *install*. **If you are on v1.x, install v2.1.2 by hand once.** After that, later versions can update themselves.
+`wails dev` can *check*, but will not *install*. **If you are on v1.x, install v2.1.3 by hand once.** After that, later versions can update themselves.
 
 Each release attaches `SHA256SUMS.txt`. Builds are not Authenticode-signed or Apple-notarized yet; SmartScreen and Gatekeeper warnings are expected.
 
@@ -439,7 +439,7 @@ By contributing, you agree that your work is licensed under MIT, the same as the
 
 **PingPulse** — know when your infrastructure goes silent.
 
-[Download v2.1.2](https://github.com/alikmndlu/PingPulse/releases/latest)
+[Download v2.1.3](https://github.com/alikmndlu/PingPulse/releases/latest)
 · [Contributing](CONTRIBUTING.md)
 · [Security](SECURITY.md)
 · [Code of Conduct](CODE_OF_CONDUCT.md)

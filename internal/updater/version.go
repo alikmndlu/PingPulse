@@ -6,7 +6,7 @@ import (
 )
 
 // Version is the running build. Release CI overrides it with -ldflags.
-var Version = "2.1.2"
+var Version = "2.1.3"
 
 const (
 	GitHubOwner = "alikmndlu"

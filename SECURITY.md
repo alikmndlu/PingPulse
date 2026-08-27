@@ -16,7 +16,7 @@ The machine it runs on is the trust boundary. Treat the data directory as sensit
 | 2.0.x | Security fixes if they still apply cleanly |
 | 1.x | No |
 
-Install **2.1.2 or later** from [Releases](https://github.com/alikmndlu/PingPulse/releases/latest). v1.x cannot in-app update to v2; install the new build by hand once.
+Install **2.1.3 or later** from [Releases](https://github.com/alikmndlu/PingPulse/releases/latest). v1.x cannot in-app update to v2; install the new build by hand once.
 
 ## Reporting a vulnerability
 
