@@ -1,13 +1,13 @@
 module pingpulse
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/energye/systray v1.0.3
 	github.com/google/uuid v1.6.0
 	github.com/prometheus-community/pro-bing v0.9.1
 	github.com/wailsapp/wails/v2 v2.15.0
-	golang.org/x/sys v0.47.0
+	golang.org/x/sys v0.49.0
 	modernc.org/sqlite v1.56.0
 )
 
